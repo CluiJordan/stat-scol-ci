@@ -14,7 +14,8 @@ interface Props {
   onReports: (id: string) => void;
 }
 
-const DEFAULT_MINISTERE = "MINISTERE DE L'EDUCATION NATIONALE ET DE L'ALPHABETISATION";
+const DEFAULT_MINISTERE =
+  "MINISTÈRE DE L'ÉDUCATION NATIONALE, DE L'ALPHABÉTISATION, DE L'ENSEIGNEMENT TECHNIQUE ET DE LA FORMATION PROFESSIONNEL";
 
 function getCurrentSchoolYear(): string {
   const now = new Date();
@@ -199,7 +200,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
             label="DRENA"
             value={form.drena}
             onChange={(e) => setForm((f) => ({ ...f, drena: e.target.value }))}
-            placeholder="Ex: DRENA GAGNOA"
+            placeholder="Ex: DRENA DE GAGNOA"
             uppercase
           />
           <Input
