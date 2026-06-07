@@ -1,35 +1,66 @@
 import type { ClassRow, ComputedRow, ComputedTotals, ExamType } from '../types';
 
-export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
-  const inscritsTotal = row.inscritsGarcon + row.inscritsFille;
+/** Borne une valeur dans [min, max]. */
+export function clamp(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min;
+  return Math.max(min, Math.min(value, max));
+}
 
-  let presentsTotal: number;
-  let presentsGarcon: number;
-  let presentsFille: number;
+/** Ratio borné à [0, 1] — un taux ne peut jamais dépasser 100%. */
+function ratio(part: number, whole: number): number {
+  return whole > 0 ? clamp(part / whole, 0, 1) : 0;
+}
+
+/**
+ * Calcule une ligne en appliquant les bornes logiques :
+ *  - présents ≤ inscrits
+ *  - admis ≤ présents (BAC, par genre) / admis ≤ inscrits (BEPC, par genre)
+ *  - tous les taux ∈ [0%, 100%]
+ * Les valeurs brutes incohérentes saisies par l'utilisateur sont ainsi neutralisées
+ * dans toutes les sorties (écran, PDF, Excel). La saisie elle-même les signale en rouge.
+ */
+export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
+  const inscritsGarcon = Math.max(0, row.inscritsGarcon || 0);
+  const inscritsFille = Math.max(0, row.inscritsFille || 0);
+  const inscritsTotal = inscritsGarcon + inscritsFille;
+
+  let presentsGarcon = 0;
+  let presentsFille = 0;
+  let presentsTotal = 0;
 
   if (examType === 'BAC') {
-    presentsGarcon = row.presentsGarcon;
-    presentsFille = row.presentsFille;
+    presentsGarcon = clamp(row.presentsGarcon || 0, 0, inscritsGarcon);
+    presentsFille = clamp(row.presentsFille || 0, 0, inscritsFille);
     presentsTotal = presentsGarcon + presentsFille;
   } else {
-    presentsTotal = row.presentsTotal;
-    presentsGarcon = 0;
-    presentsFille = 0;
+    presentsTotal = clamp(row.presentsTotal || 0, 0, inscritsTotal);
   }
 
-  const absents = inscritsTotal - presentsTotal;
-  const admisTotal = row.admisGarcon + row.admisFille;
-  const tauxTotal = presentsTotal > 0 ? Math.min(admisTotal / presentsTotal, 1) : 0;
+  let admisGarcon: number;
+  let admisFille: number;
 
+  if (examType === 'BAC') {
+    admisGarcon = clamp(row.admisGarcon || 0, 0, presentsGarcon);
+    admisFille = clamp(row.admisFille || 0, 0, presentsFille);
+  } else {
+    admisGarcon = clamp(row.admisGarcon || 0, 0, inscritsGarcon);
+    admisFille = clamp(row.admisFille || 0, 0, inscritsFille);
+  }
+
+  const admisTotal = admisGarcon + admisFille;
+  const absents = inscritsTotal - presentsTotal;
+
+  const tauxTotal = ratio(admisTotal, presentsTotal);
   let tauxGarcon: number;
   let tauxFille: number;
 
   if (examType === 'BAC') {
-    tauxGarcon = presentsGarcon > 0 ? Math.min(row.admisGarcon / presentsGarcon, 1) : 0;
-    tauxFille = presentsFille > 0 ? Math.min(row.admisFille / presentsFille, 1) : 0;
+    tauxGarcon = ratio(admisGarcon, presentsGarcon);
+    tauxFille = ratio(admisFille, presentsFille);
   } else {
-    tauxGarcon = row.inscritsGarcon > 0 ? Math.min(row.admisGarcon / row.inscritsGarcon, 1) : 0;
-    tauxFille = row.inscritsFille > 0 ? Math.min(row.admisFille / row.inscritsFille, 1) : 0;
+    // BEPC : présents par genre non saisis → taux genre = admis / inscrits
+    tauxGarcon = ratio(admisGarcon, inscritsGarcon);
+    tauxFille = ratio(admisFille, inscritsFille);
   }
 
   return {
@@ -37,15 +68,15 @@ export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
     name: row.name,
     centreId: row.centreId,
     inscritsTotal,
-    inscritsGarcon: row.inscritsGarcon,
-    inscritsFille: row.inscritsFille,
+    inscritsGarcon,
+    inscritsFille,
     presentsTotal,
     presentsGarcon,
     presentsFille,
     absents,
     admisTotal,
-    admisGarcon: row.admisGarcon,
-    admisFille: row.admisFille,
+    admisGarcon,
+    admisFille,
     tauxTotal,
     tauxGarcon,
     tauxFille,
@@ -53,27 +84,29 @@ export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
 }
 
 export function computeTotals(rows: ComputedRow[], examType: ExamType): ComputedTotals {
-  const inscritsTotal = rows.reduce((s, r) => s + r.inscritsTotal, 0);
-  const inscritsGarcon = rows.reduce((s, r) => s + r.inscritsGarcon, 0);
-  const inscritsFille = rows.reduce((s, r) => s + r.inscritsFille, 0);
-  const presentsTotal = rows.reduce((s, r) => s + r.presentsTotal, 0);
-  const presentsGarcon = rows.reduce((s, r) => s + r.presentsGarcon, 0);
-  const presentsFille = rows.reduce((s, r) => s + r.presentsFille, 0);
-  const absents = inscritsTotal - presentsTotal;
-  const admisTotal = rows.reduce((s, r) => s + r.admisTotal, 0);
-  const admisGarcon = rows.reduce((s, r) => s + r.admisGarcon, 0);
-  const admisFille = rows.reduce((s, r) => s + r.admisFille, 0);
+  const sum = (pick: (r: ComputedRow) => number) => rows.reduce((s, r) => s + pick(r), 0);
 
-  const tauxTotal = presentsTotal > 0 ? Math.min(admisTotal / presentsTotal, 1) : 0;
+  const inscritsTotal = sum((r) => r.inscritsTotal);
+  const inscritsGarcon = sum((r) => r.inscritsGarcon);
+  const inscritsFille = sum((r) => r.inscritsFille);
+  const presentsTotal = sum((r) => r.presentsTotal);
+  const presentsGarcon = sum((r) => r.presentsGarcon);
+  const presentsFille = sum((r) => r.presentsFille);
+  const absents = inscritsTotal - presentsTotal;
+  const admisTotal = sum((r) => r.admisTotal);
+  const admisGarcon = sum((r) => r.admisGarcon);
+  const admisFille = sum((r) => r.admisFille);
+
+  const tauxTotal = ratio(admisTotal, presentsTotal);
   let tauxGarcon: number;
   let tauxFille: number;
 
   if (examType === 'BAC') {
-    tauxGarcon = presentsGarcon > 0 ? Math.min(admisGarcon / presentsGarcon, 1) : 0;
-    tauxFille = presentsFille > 0 ? Math.min(admisFille / presentsFille, 1) : 0;
+    tauxGarcon = ratio(admisGarcon, presentsGarcon);
+    tauxFille = ratio(admisFille, presentsFille);
   } else {
-    tauxGarcon = inscritsGarcon > 0 ? Math.min(admisGarcon / inscritsGarcon, 1) : 0;
-    tauxFille = inscritsFille > 0 ? Math.min(admisFille / inscritsFille, 1) : 0;
+    tauxGarcon = ratio(admisGarcon, inscritsGarcon);
+    tauxFille = ratio(admisFille, inscritsFille);
   }
 
   return {
