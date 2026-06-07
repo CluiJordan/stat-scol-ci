@@ -9,6 +9,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Modal from '../components/ui/Modal';
+import Logo from '../components/ui/Logo';
 
 interface Props {
   sessionId: string;
@@ -36,12 +37,10 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
     setTimeout(() => setSaved(false), 1500);
   }, []);
 
-  // ── CONFIG ──────────────────────────────────────────────────────────
   function setField(key: keyof Session, value: string) {
     persist({ ...session, [key]: value });
   }
 
-  // ── CENTRES ─────────────────────────────────────────────────────────
   function addCentre() {
     const centre: Centre = { id: uuid(), name: `Centre ${session.centres.length + 1}` };
     persist({ ...session, centres: [...session.centres, centre] });
@@ -59,7 +58,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
     });
   }
 
-  // ── CLASSES ─────────────────────────────────────────────────────────
   function addClass() {
     persist({ ...session, classes: [...session.classes, emptyRow()] });
   }
@@ -72,7 +70,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
     persist({ ...session, classes: session.classes.filter((c) => c.id !== id) });
   }
 
-  // ── IMPORT ──────────────────────────────────────────────────────────
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -91,53 +88,56 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
   const isBac = session.examType === 'BAC';
 
+  const tabLabels: Record<Tab, string> = {
+    config: '① Configuration',
+    classes: isBac ? '② Classes' : '② Classes & Centres',
+    saisie: '③ Saisie des données',
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-green-800 text-white px-6 py-4 shadow">
+    <div className="min-h-screen bg-[#F5F0EB]">
+      <header className="bg-[#0A0A0A] px-6 py-5">
         <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <button onClick={onBack} className="text-green-200 hover:text-white text-sm flex items-center gap-1">
+          <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1.5 transition-colors shrink-0">
             ← Retour
           </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-bold truncate">{session.etablissement || 'Session sans nom'}</h1>
-            <p className="text-green-200 text-xs">{session.examType} — {session.anneeScolaire}</p>
+          <div className="flex items-center gap-3 flex-1 min-w-0 text-white">
+            <Logo size={28} />
+            <div className="min-w-0">
+              <h1 className="font-bold truncate text-sm leading-none">{session.etablissement || 'Session sans nom'}</h1>
+              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {saved && <span className="text-green-300 text-xs">Enregistré ✓</span>}
-            <Button size="sm" className="bg-white text-green-800 hover:bg-green-50" onClick={onReports}>
-              Voir les rapports
-            </Button>
+          <div className="flex items-center gap-3 shrink-0">
+            {saved && <span className="text-white/50 text-xs font-medium">Enregistré ✓</span>}
+            <Button size="sm" variant="secondary" onClick={onReports}>Voir les rapports</Button>
           </div>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="bg-white border-b px-6">
-        <div className="max-w-6xl mx-auto flex gap-0">
-          {(['config', 'classes', 'saisie'] as Tab[]).map((t) => {
-            const labels = { config: '1. Configuration', classes: isBac ? '2. Classes' : '2. Classes & Centres', saisie: '3. Saisie des données' };
-            return (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${tab === t ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                {labels[t]}
-              </button>
-            );
-          })}
+      <div className="bg-[#F5F0EB] border-b border-[#E5DDD5] px-6">
+        <div className="max-w-6xl mx-auto flex items-center gap-1 py-2">
+          {(['config', 'classes', 'saisie'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                tab === t ? 'bg-[#1C2B3A] text-white' : 'text-gray-500 hover:text-[#1C2B3A] hover:bg-white'
+              }`}
+            >
+              {tabLabels[t]}
+            </button>
+          ))}
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6 py-6">
-        {/* ── TAB: CONFIG ── */}
         {tab === 'config' && (
-          <div className="bg-white rounded-xl border p-6 max-w-2xl">
-            <h2 className="font-semibold text-gray-800 mb-4">Informations générales</h2>
+          <div className="bg-white rounded-xl border border-[#E5DDD5] p-6 max-w-2xl">
+            <h2 className="font-bold text-[#0A0A0A] mb-5">Informations générales</h2>
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Type d'examen" value={session.examType} disabled className="bg-gray-50" />
+                <Input label="Type d'examen" value={session.examType} disabled />
                 <Input label="Année scolaire" value={session.anneeScolaire} onChange={(e) => setField('anneeScolaire', e.target.value)} />
               </div>
               <Input label="Établissement" value={session.etablissement} onChange={(e) => setField('etablissement', e.target.value)} />
@@ -153,14 +153,12 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
           </div>
         )}
 
-        {/* ── TAB: CLASSES ── */}
         {tab === 'classes' && (
-          <div className="flex flex-col gap-6">
-            {/* Centres (BEPC only) */}
+          <div className="flex flex-col gap-5">
             {!isBac && (
-              <div className="bg-white rounded-xl border p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-gray-800">Centres d'examen</h2>
+              <div className="bg-white rounded-xl border border-[#E5DDD5] p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-[#0A0A0A]">Centres d'examen</h2>
                   <Button size="sm" variant="primary" onClick={addCentre}>+ Ajouter un centre</Button>
                 </div>
                 {session.centres.length === 0 && (
@@ -176,11 +174,9 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 </div>
               </div>
             )}
-
-            {/* Classes list */}
-            <div className="bg-white rounded-xl border p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-gray-800">Classes</h2>
+            <div className="bg-white rounded-xl border border-[#E5DDD5] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-[#0A0A0A]">Classes</h2>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => setShowImport(true)}>Importer Excel/CSV</Button>
                   <Button size="sm" variant="primary" onClick={addClass}>+ Ajouter une classe</Button>
@@ -192,19 +188,9 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               <div className="flex flex-col gap-2">
                 {session.classes.map((cls) => (
                   <div key={cls.id} className="flex items-center gap-2">
-                    <Input
-                      value={cls.name}
-                      onChange={(e) => updateClass(cls.id, 'name', e.target.value)}
-                      placeholder="Ex: 3EME 1"
-                      className="flex-1"
-                    />
+                    <Input value={cls.name} onChange={(e) => updateClass(cls.id, 'name', e.target.value)} placeholder="Ex: 3EME 1" className="flex-1" />
                     {!isBac && (
-                      <Select
-                        options={centreOptions}
-                        value={cls.centreId ?? ''}
-                        onChange={(e) => updateClass(cls.id, 'centreId', e.target.value || null)}
-                        className="flex-1"
-                      />
+                      <Select options={centreOptions} value={cls.centreId ?? ''} onChange={(e) => updateClass(cls.id, 'centreId', e.target.value || null)} className="flex-1" />
                     )}
                     <Button size="sm" variant="danger" onClick={() => deleteClass(cls.id)}>✕</Button>
                   </div>
@@ -214,50 +200,48 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
           </div>
         )}
 
-        {/* ── TAB: SAISIE ── */}
         {tab === 'saisie' && (
-          <div className="bg-white rounded-xl border overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 border-b">
-              <h2 className="font-semibold text-gray-800">Saisie des données</h2>
+          <div className="bg-white rounded-xl border border-[#E5DDD5] overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5DDD5]">
+              <h2 className="font-bold text-[#0A0A0A]">Saisie des données</h2>
               <Button size="sm" onClick={() => setShowImport(true)}>Importer Excel/CSV</Button>
             </div>
             {session.classes.length === 0 ? (
-              <p className="text-center text-gray-400 py-10">Ajoutez d'abord des classes dans l'onglet « Classes »</p>
+              <p className="text-center text-gray-400 py-12 text-sm">Ajoutez d'abord des classes dans l'onglet « Classes »</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-[#F5F0EB] border-b border-[#E5DDD5]">
                     <tr>
-                      <th className="text-left px-3 py-2 font-medium text-gray-700 sticky left-0 bg-gray-50 min-w-[120px]">
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider sticky left-0 bg-[#F5F0EB] min-w-[140px]">
                         {isBac ? 'Classe & Série' : 'Classe'}
                       </th>
-                      <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Inscrits G</th>
-                      <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Inscrits F</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Inscrits G</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Inscrits F</th>
                       {isBac ? (
                         <>
-                          <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Présents G</th>
-                          <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Présents F</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold text-[#D95F18] uppercase tracking-wider whitespace-nowrap">Présents G</th>
+                          <th className="px-3 py-2.5 text-xs font-semibold text-[#D95F18] uppercase tracking-wider whitespace-nowrap">Présents F</th>
                         </>
                       ) : (
-                        <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Cand. Présents</th>
+                        <th className="px-3 py-2.5 text-xs font-semibold text-[#D95F18] uppercase tracking-wider whitespace-nowrap">Cand. Présents</th>
                       )}
-                      <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Admis G</th>
-                      <th className="px-3 py-2 font-medium text-gray-700 whitespace-nowrap">Admis F</th>
-                      {/* Computed */}
-                      <th className="px-3 py-2 font-medium text-blue-600 whitespace-nowrap bg-blue-50">Total inscrits</th>
-                      {isBac && <th className="px-3 py-2 font-medium text-blue-600 whitespace-nowrap bg-blue-50">Absents</th>}
-                      <th className="px-3 py-2 font-medium text-blue-600 whitespace-nowrap bg-blue-50">Total admis</th>
-                      <th className="px-3 py-2 font-medium text-blue-600 whitespace-nowrap bg-blue-50">Taux</th>
-                      <th className="px-3 py-2 font-medium text-blue-600 whitespace-nowrap bg-blue-50">Taux G</th>
-                      <th className="px-3 py-2 font-medium text-blue-600 whitespace-nowrap bg-blue-50">Taux F</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-emerald-700 uppercase tracking-wider whitespace-nowrap">Admis G</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-emerald-700 uppercase tracking-wider whitespace-nowrap">Admis F</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Total inscrits</th>
+                      {isBac && <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Absents</th>}
+                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Total admis</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Taux</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Taux G</th>
+                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Taux F</th>
                     </tr>
                   </thead>
                   <tbody>
                     {session.classes.map((cls, i) => {
                       const computed = computeRow(cls, session.examType);
                       return (
-                        <tr key={cls.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-3 py-1.5 sticky left-0 bg-inherit font-medium text-gray-800">{cls.name || '—'}</td>
+                        <tr key={cls.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F5F0EB]/40'}>
+                          <td className="px-3 py-2 sticky left-0 bg-inherit font-semibold text-[#0A0A0A]">{cls.name || '—'}</td>
                           <NumCell value={cls.inscritsGarcon} onChange={(v) => updateClass(cls.id, 'inscritsGarcon', v)} />
                           <NumCell value={cls.inscritsFille} onChange={(v) => updateClass(cls.id, 'inscritsFille', v)} />
                           {isBac ? (
@@ -270,12 +254,12 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                           )}
                           <NumCell value={cls.admisGarcon} onChange={(v) => updateClass(cls.id, 'admisGarcon', v)} />
                           <NumCell value={cls.admisFille} onChange={(v) => updateClass(cls.id, 'admisFille', v)} />
-                          <td className="px-3 py-1.5 text-center text-blue-700 bg-blue-50/50 font-medium">{computed.inscritsTotal}</td>
-                          {isBac && <td className="px-3 py-1.5 text-center text-blue-700 bg-blue-50/50">{computed.absents}</td>}
-                          <td className="px-3 py-1.5 text-center text-blue-700 bg-blue-50/50 font-medium">{computed.admisTotal}</td>
-                          <td className="px-3 py-1.5 text-center text-blue-700 bg-blue-50/50 font-medium">{pct(computed.tauxTotal)}</td>
-                          <td className="px-3 py-1.5 text-center text-blue-700 bg-blue-50/50">{pct(computed.tauxGarcon)}</td>
-                          <td className="px-3 py-1.5 text-center text-blue-700 bg-blue-50/50">{pct(computed.tauxFille)}</td>
+                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5 font-semibold">{computed.inscritsTotal}</td>
+                          {isBac && <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5">{computed.absents}</td>}
+                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5 font-semibold">{computed.admisTotal}</td>
+                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5 font-semibold">{pct(computed.tauxTotal)}</td>
+                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5">{pct(computed.tauxGarcon)}</td>
+                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5">{pct(computed.tauxFille)}</td>
                         </tr>
                       );
                     })}
@@ -287,7 +271,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         )}
       </main>
 
-      {/* Import modal */}
       <Modal
         open={showImport}
         title="Importer des données"
@@ -295,18 +278,14 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         footer={<Button onClick={() => { setShowImport(false); setImportErrors([]); }}>Fermer</Button>}
       >
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-600">
-            Importez un fichier Excel (.xlsx) ou CSV avec les colonnes correctes.
-          </p>
-          <Button size="sm" variant="ghost" onClick={() => downloadTemplate(session.examType)}>
-            Télécharger le modèle {session.examType}
-          </Button>
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:border-green-500 transition-colors">
-            <span className="text-sm text-gray-500">Cliquez ou glissez un fichier Excel/CSV</span>
+          <p className="text-sm text-gray-500 leading-relaxed">Importez un fichier Excel (.xlsx) ou CSV avec les colonnes correctes.</p>
+          <Button size="sm" variant="ghost" onClick={() => downloadTemplate(session.examType)}>Télécharger le modèle {session.examType}</Button>
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-[#E5DDD5] rounded-xl p-8 cursor-pointer hover:border-[#1C2B3A] transition-colors group">
+            <span className="text-sm text-gray-400 group-hover:text-[#1C2B3A] transition-colors">Cliquez ou glissez un fichier Excel/CSV</span>
             <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
           </label>
           {importErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded p-3">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               {importErrors.map((e, i) => <p key={i} className="text-xs text-red-600">{e}</p>)}
             </div>
           )}
@@ -318,14 +297,14 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 function NumCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <td className="px-1 py-1">
+    <td className="px-1 py-1.5">
       <input
         type="number"
         min={0}
         value={value === 0 ? '' : value}
         placeholder="0"
         onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
-        className="w-16 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+        className="w-16 text-center border border-[#E5DDD5] rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F4732A]/30 focus:border-[#F4732A] bg-white transition-all"
       />
     </td>
   );

@@ -11,14 +11,23 @@ interface Props {
 export default function Modal({ open, title, onClose, children, footer }: Props) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5DDD5]">
+          <h3 className="font-bold text-[#0A0A0A] tracking-tight">{title}</h3>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#F5F0EB] text-gray-400 hover:text-[#1C2B3A] transition-colors text-xl leading-none"
+          >
+            &times;
+          </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
-        {footer && <div className="px-6 py-4 border-t flex justify-end gap-2">{footer}</div>}
+        <div className="px-6 py-5">{children}</div>
+        {footer && (
+          <div className="px-6 py-4 bg-[#F5F0EB] border-t border-[#E5DDD5] flex justify-end gap-2">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
