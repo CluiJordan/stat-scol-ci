@@ -6,6 +6,7 @@ import {
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
 import { computeRow, computeTotals, pct } from '../lib/calculations';
+import { countErrors } from '../lib/validation';
 import { exportBEPCGeneral, exportBEPCParEtablissement, exportBACStatistique } from '../lib/exportPdf';
 import { exportExcel } from '../lib/exportExcel';
 import Button from '../components/ui/Button';
@@ -31,6 +32,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const isBac = session.examType === 'BAC';
   const computed = session.classes.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
+  const errors = countErrors(session.classes, session.examType);
 
   const truncate = (s: string) => s.length > 14 ? s.slice(0, 13) + '…' : s;
 
@@ -51,29 +53,29 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
   return (
     <div className="min-h-screen bg-[#F5F0EB]">
-      <header className="bg-[#0A0A0A] px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-start gap-4">
-          <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1.5 transition-colors shrink-0 mt-0.5">
-            ← Retour
-          </button>
-          <div className="flex items-start gap-3 flex-1 min-w-0 text-white">
-            <Logo size={28} className="mt-0.5 shrink-0" />
-            <div className="min-w-0">
+      <header className="bg-[#0A0A0A] px-4 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition-colors shrink-0 mt-0.5" aria-label="Retour">
+              ←<span className="hidden sm:inline"> Retour</span>
+            </button>
+            <Logo size={28} className="mt-0.5 shrink-0 text-white" />
+            <div className="min-w-0 text-white">
               <h1 className="font-bold text-sm leading-tight">{session.etablissement}</h1>
               <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}{session.examSession ? ` — ${session.examSession}` : ''}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="secondary" onClick={onEdit}>Modifier</Button>
-            <Button size="sm" variant="secondary" onClick={() => exportExcel(session)}>Export Excel</Button>
-            <Button size="sm" variant="accent" onClick={handleExportPdf}>Export PDF</Button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button size="sm" variant="secondary" onClick={onEdit} className="flex-1 sm:flex-none justify-center">Modifier</Button>
+            <Button size="sm" variant="secondary" onClick={() => exportExcel(session)} className="flex-1 sm:flex-none justify-center">Excel</Button>
+            <Button size="sm" variant="accent" onClick={handleExportPdf} className="flex-1 sm:flex-none justify-center">Export PDF</Button>
           </div>
         </div>
       </header>
 
       {!isBac && (
-        <div className="bg-[#F5F0EB] border-b border-[#E5DDD5] px-6">
-          <div className="max-w-6xl mx-auto flex items-center gap-1 py-2">
+        <div className="bg-[#F5F0EB] border-b border-[#E5DDD5] px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto flex items-center gap-1 py-2 overflow-x-auto">
             {([
               ['bepc-general', 'Statistique générale'],
               ['bepc-etablissement', 'Statistique par établissement'],
@@ -81,7 +83,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
               <button
                 key={key}
                 onClick={() => setActiveReport(key)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
                   activeReport === key ? 'bg-[#1C2B3A] text-white' : 'text-gray-500 hover:text-[#1C2B3A] hover:bg-white'
                 }`}
               >
@@ -92,19 +94,29 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
         </div>
       )}
 
-      <main className="max-w-6xl mx-auto px-6 py-6 space-y-5">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5">
+        {errors > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-start gap-3">
+            <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
+            <p className="text-sm text-red-700">
+              <span className="font-semibold">{errors} incohérence{errors > 1 ? 's' : ''} de saisie détectée{errors > 1 ? 's' : ''}.</span>{' '}
+              Les taux sont plafonnés à 100%, mais corrigez les données via « Modifier » avant d'exporter le document officiel.
+            </p>
+          </div>
+        )}
+
         <div className="bg-white border border-[#E5DDD5] rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-[#E5DDD5]">
-            <div className="flex justify-between text-xs text-gray-600 mb-2">
-              <div>
+          <div className="p-4 sm:p-6 border-b border-[#E5DDD5]">
+            <div className="flex flex-col sm:flex-row sm:justify-between gap-3 text-xs text-gray-600 mb-2">
+              <div className="min-w-0">
                 <p className="font-medium">{session.ministere}</p>
-                <div className="border-b border-gray-300 my-1 w-48" />
+                <div className="border-b border-gray-300 my-1 w-40 sm:w-48" />
                 <p>{session.drena}</p>
-                <div className="border-b border-gray-300 my-1 w-48" />
+                <div className="border-b border-gray-300 my-1 w-40 sm:w-48" />
                 <p>{session.etablissement}</p>
                 {session.code && <p>{session.code}</p>}
               </div>
-              <div className="text-right">
+              <div className="sm:text-right shrink-0">
                 <p className="font-medium">ANNEE SCOLAIRE</p>
                 <p>{session.anneeScolaire}</p>
                 {session.examSession && (
@@ -115,25 +127,25 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                 )}
               </div>
             </div>
-            {activeReport === 'bepc-general' && <h2 className="text-xl font-bold text-center mt-4">Statistique générale</h2>}
-            {activeReport === 'bepc-etablissement' && <h2 className="text-xl font-bold text-center mt-4">Statistique par établissement</h2>}
+            {activeReport === 'bepc-general' && <h2 className="text-lg sm:text-xl font-bold text-center mt-4">Statistique générale</h2>}
+            {activeReport === 'bepc-etablissement' && <h2 className="text-lg sm:text-xl font-bold text-center mt-4">Statistique par établissement</h2>}
             {activeReport === 'bac' && (
               <div className="text-center mt-4">
-                <h2 className="text-lg font-bold uppercase">{`STATISTIQUE ${session.etablissement.toUpperCase()}`}</h2>
+                <h2 className="text-base sm:text-lg font-bold uppercase">{`STATISTIQUE ${session.etablissement.toUpperCase()}`}</h2>
                 <div className="inline-block bg-[#1C2B3A] text-white rounded-lg px-4 py-1.5 mt-2">
                   <span className="font-semibold text-sm">Baccalauréat {session.examSession}</span>
                 </div>
               </div>
             )}
           </div>
-          <div className="overflow-x-auto p-4">
+          <div className="overflow-x-auto p-3 sm:p-4">
             {activeReport === 'bepc-general' && <BEPCGeneralTable rows={computed} totals={totals} />}
             {activeReport === 'bepc-etablissement' && <BEPCParEtablissementTable session={session} computed={computed} />}
             {activeReport === 'bac' && <BACTable rows={computed} totals={totals} />}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
           <StatCard label="Inscrits" value={totals.inscritsTotal} />
           <StatCard label="Présents" value={totals.presentsTotal} />
           <StatCard label="Admis" value={totals.admisTotal} />
@@ -144,7 +156,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
         {computed.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white border border-[#E5DDD5] rounded-lg p-5">
+            <div className="bg-white border border-[#E5DDD5] rounded-lg p-4 sm:p-5">
               <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Répartition des admis par classe</h3>
               <p className="text-xs text-gray-400 mb-2">Nombre d'admis par classe</p>
               {admisData.length > 0 ? (
@@ -161,7 +173,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                 <p className="text-center text-gray-400 text-sm py-16">Aucun admis enregistré</p>
               )}
             </div>
-            <div className="bg-white border border-[#E5DDD5] rounded-lg p-5">
+            <div className="bg-white border border-[#E5DDD5] rounded-lg p-4 sm:p-5">
               <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Garçons vs Filles</h3>
               <p className="text-xs text-gray-400 mb-2">Parmi les admis</p>
               {genderData.length > 0 ? (
@@ -190,8 +202,8 @@ function StatCard({ label, value, highlight }: { label: string; value: string | 
   const style = highlight === 'success' ? 'bg-emerald-50 border-emerald-200' : highlight === 'warn' ? 'bg-orange-50 border-orange-200' : 'bg-white border-[#E5DDD5]';
   const valueStyle = highlight === 'success' ? 'text-emerald-700' : highlight === 'warn' ? 'text-[#F4732A]' : 'text-[#0A0A0A]';
   return (
-    <div className={`rounded-lg px-5 py-4 text-center min-w-[120px] border ${style}`}>
-      <p className={`text-2xl font-bold ${valueStyle}`}>{value}</p>
+    <div className={`rounded-lg px-4 sm:px-5 py-4 text-center sm:min-w-[120px] border ${style}`}>
+      <p className={`text-xl sm:text-2xl font-bold ${valueStyle}`}>{value}</p>
       <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mt-1">{label}</p>
     </div>
   );
