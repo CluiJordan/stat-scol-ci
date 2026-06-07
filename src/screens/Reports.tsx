@@ -18,6 +18,7 @@ interface Props {
 }
 
 type ReportType = 'bepc-general' | 'bepc-etablissement' | 'bac';
+type ColColor = 'g' | 'f' | undefined;
 
 const PIE_COLORS = ['#1C2B3A', '#F4732A', '#2D4155', '#D95F18', '#3D5468', '#B04E12', '#4D6678', '#8C3B0C', '#0F1E2C', '#C05514'];
 
@@ -92,7 +93,6 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
       )}
 
       <main className="max-w-6xl mx-auto px-6 py-6 space-y-5">
-        {/* Document officiel */}
         <div className="bg-white border border-[#E5DDD5] rounded-lg overflow-hidden">
           <div className="p-6 border-b border-[#E5DDD5]">
             <div className="flex justify-between text-xs text-gray-600 mb-2">
@@ -133,7 +133,6 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           </div>
         </div>
 
-        {/* Statistiques résumées */}
         <div className="flex flex-wrap gap-3">
           <StatCard label="Inscrits" value={totals.inscritsTotal} />
           <StatCard label="Présents" value={totals.presentsTotal} />
@@ -143,7 +142,6 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           <StatCard label="Taux filles" value={pct(totals.tauxFille)} />
         </div>
 
-        {/* Graphiques camembert */}
         {computed.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white border border-[#E5DDD5] rounded-lg p-5">
@@ -152,23 +150,10 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
               {admisData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie
-                      data={admisData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={95}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {admisData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
+                    <Pie data={admisData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
+                      {admisData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip
-                      formatter={(v: number) => [v, 'Admis']}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
-                    />
+                    <Tooltip formatter={(v: number) => [v, 'Admis']} contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -176,29 +161,17 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                 <p className="text-center text-gray-400 text-sm py-16">Aucun admis enregistré</p>
               )}
             </div>
-
             <div className="bg-white border border-[#E5DDD5] rounded-lg p-5">
               <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Garçons vs Filles</h3>
               <p className="text-xs text-gray-400 mb-2">Parmi les admis</p>
               {genderData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie
-                      data={genderData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={95}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
+                    <Pie data={genderData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={3} dataKey="value">
                       <Cell fill="#1C2B3A" />
                       <Cell fill="#F4732A" />
                     </Pie>
-                    <Tooltip
-                      formatter={(v: number) => [v, 'Admis']}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
-                    />
+                    <Tooltip formatter={(v: number) => [v, 'Admis']} contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -227,23 +200,33 @@ function StatCard({ label, value, highlight }: { label: string; value: string | 
 function BEPCGeneralTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
   return (
     <table className="w-full text-xs border-collapse">
-      <thead><tr className="bg-gray-100">
-        <Th>Classe</Th><Th>Candidats inscrits</Th><Th>Candidats Présents</Th><Th>Admis</Th><Th>Taux d'admission</Th>
-        <Th>Inscrits Garçon</Th><Th>Admis Garçon</Th><Th>Taux d'admission Garçon</Th>
-        <Th>Inscrits Fille</Th><Th>Admis Fille</Th><Th>Taux d'admission Fille</Th>
+      <thead><tr>
+        <Th>Classe</Th>
+        <Th>Candidats inscrits</Th>
+        <Th>Candidats Présents</Th>
+        <Th>Admis</Th>
+        <Th>Taux d'admission</Th>
+        <Th color="g">Inscrits Garçon</Th>
+        <Th color="g">Admis Garçon</Th>
+        <Th color="g">Taux d'admission Garçon</Th>
+        <Th color="f">Inscrits Fille</Th>
+        <Th color="f">Admis Fille</Th>
+        <Th color="f">Taux d'admission Fille</Th>
       </tr></thead>
       <tbody>
         {rows.map((r, i) => (
           <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-            <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-            <Td>{r.inscritsGarcon}</Td><Td>{r.admisGarcon}</Td><Td>{pct(r.tauxGarcon)}</Td>
-            <Td>{r.inscritsFille}</Td><Td>{r.admisFille}</Td><Td>{pct(r.tauxFille)}</Td>
+            <Td left>{r.name}</Td>
+            <Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
+            <Td color="g">{r.inscritsGarcon}</Td><Td color="g">{r.admisGarcon}</Td><Td color="g">{pct(r.tauxGarcon)}</Td>
+            <Td color="f">{r.inscritsFille}</Td><Td color="f">{r.admisFille}</Td><Td color="f">{pct(r.tauxFille)}</Td>
           </tr>
         ))}
-        <tr className="bg-gray-200 font-bold">
-          <Td left>TOTAL</Td><Td>{totals.inscritsTotal}</Td><Td>{totals.presentsTotal}</Td><Td>{totals.admisTotal}</Td><Td>{pct(totals.tauxTotal)}</Td>
-          <Td>{totals.inscritsGarcon}</Td><Td>{totals.admisGarcon}</Td><Td>{pct(totals.tauxGarcon)}</Td>
-          <Td>{totals.inscritsFille}</Td><Td>{totals.admisFille}</Td><Td>{pct(totals.tauxFille)}</Td>
+        <tr className="font-bold">
+          <Td left total>TOTAL</Td>
+          <Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
+          <Td color="g" total>{totals.inscritsGarcon}</Td><Td color="g" total>{totals.admisGarcon}</Td><Td color="g" total>{pct(totals.tauxGarcon)}</Td>
+          <Td color="f" total>{totals.inscritsFille}</Td><Td color="f" total>{totals.admisFille}</Td><Td color="f" total>{pct(totals.tauxFille)}</Td>
         </tr>
       </tbody>
     </table>
@@ -267,23 +250,23 @@ function BEPCParEtablissementTable({ session, computed }: { session: Session; co
           <div key={gi}>
             <div className="bg-[#1C2B3A] text-white px-3 py-2 font-bold text-sm rounded-t tracking-wide">{centre ? centre.name : 'AUTRE'}</div>
             <table className="w-full text-xs border-collapse border border-gray-300">
-              <thead><tr className="bg-gray-100">
+              <thead><tr>
                 <Th>Classe</Th><Th>Cand. inscrits</Th><Th>Cand. Présents</Th><Th>Admis</Th><Th>Taux</Th>
-                <Th>Inscrits G</Th><Th>Admis G</Th><Th>Taux G</Th>
-                <Th>Inscrits F</Th><Th>Admis F</Th><Th>Taux F</Th>
+                <Th color="g">Inscrits G</Th><Th color="g">Admis G</Th><Th color="g">Taux G</Th>
+                <Th color="f">Inscrits F</Th><Th color="f">Admis F</Th><Th color="f">Taux F</Th>
               </tr></thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-                    <Td>{r.inscritsGarcon}</Td><Td>{r.admisGarcon}</Td><Td>{pct(r.tauxGarcon)}</Td>
-                    <Td>{r.inscritsFille}</Td><Td>{r.admisFille}</Td><Td>{pct(r.tauxFille)}</Td>
+                    <Td color="g">{r.inscritsGarcon}</Td><Td color="g">{r.admisGarcon}</Td><Td color="g">{pct(r.tauxGarcon)}</Td>
+                    <Td color="f">{r.inscritsFille}</Td><Td color="f">{r.admisFille}</Td><Td color="f">{pct(r.tauxFille)}</Td>
                   </tr>
                 ))}
-                <tr className="bg-gray-200 font-bold">
-                  <Td left>TOTAL</Td><Td>{groupTotals.inscritsTotal}</Td><Td>{groupTotals.presentsTotal}</Td><Td>{groupTotals.admisTotal}</Td><Td>{pct(groupTotals.tauxTotal)}</Td>
-                  <Td>{groupTotals.inscritsGarcon}</Td><Td>{groupTotals.admisGarcon}</Td><Td>{pct(groupTotals.tauxGarcon)}</Td>
-                  <Td>{groupTotals.inscritsFille}</Td><Td>{groupTotals.admisFille}</Td><Td>{pct(groupTotals.tauxFille)}</Td>
+                <tr className="font-bold">
+                  <Td left total>TOTAL</Td><Td total>{groupTotals.inscritsTotal}</Td><Td total>{groupTotals.presentsTotal}</Td><Td total>{groupTotals.admisTotal}</Td><Td total>{pct(groupTotals.tauxTotal)}</Td>
+                  <Td color="g" total>{groupTotals.inscritsGarcon}</Td><Td color="g" total>{groupTotals.admisGarcon}</Td><Td color="g" total>{pct(groupTotals.tauxGarcon)}</Td>
+                  <Td color="f" total>{groupTotals.inscritsFille}</Td><Td color="f" total>{groupTotals.admisFille}</Td><Td color="f" total>{pct(groupTotals.tauxFille)}</Td>
                 </tr>
               </tbody>
             </table>
@@ -291,10 +274,10 @@ function BEPCParEtablissementTable({ session, computed }: { session: Session; co
         );
       })}
       <table className="w-full text-xs border-collapse"><tbody>
-        <tr className="bg-gray-300 font-bold text-sm">
-          <Td left>TOTAL GÉNÉRAL</Td><Td>{allTotals.inscritsTotal}</Td><Td>{allTotals.presentsTotal}</Td><Td>{allTotals.admisTotal}</Td><Td>{pct(allTotals.tauxTotal)}</Td>
-          <Td>{allTotals.inscritsGarcon}</Td><Td>{allTotals.admisGarcon}</Td><Td>{pct(allTotals.tauxGarcon)}</Td>
-          <Td>{allTotals.inscritsFille}</Td><Td>{allTotals.admisFille}</Td><Td>{pct(allTotals.tauxFille)}</Td>
+        <tr className="font-bold text-sm">
+          <Td left total>TOTAL GÉNÉRAL</Td><Td total>{allTotals.inscritsTotal}</Td><Td total>{allTotals.presentsTotal}</Td><Td total>{allTotals.admisTotal}</Td><Td total>{pct(allTotals.tauxTotal)}</Td>
+          <Td color="g" total>{allTotals.inscritsGarcon}</Td><Td color="g" total>{allTotals.admisGarcon}</Td><Td color="g" total>{pct(allTotals.tauxGarcon)}</Td>
+          <Td color="f" total>{allTotals.inscritsFille}</Td><Td color="f" total>{allTotals.admisFille}</Td><Td color="f" total>{pct(allTotals.tauxFille)}</Td>
         </tr>
       </tbody></table>
     </div>
@@ -304,34 +287,36 @@ function BEPCParEtablissementTable({ session, computed }: { session: Session; co
 function BACTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
   return (
     <table className="w-full text-xs border-collapse">
-      <thead><tr className="bg-gray-100">
+      <thead><tr>
         <Th>Classe & Série</Th><Th>Cand. inscrits</Th><Th>Cand. Présents</Th><Th>Cand. absents</Th><Th>Admis</Th><Th>Taux d'admission</Th>
-        <Th>Inscrits (G)</Th><Th>Présents (G)</Th><Th>Admis (G)</Th><Th>Taux (G)</Th>
-        <Th>Inscrits (F)</Th><Th>Présents (F)</Th><Th>Admis (F)</Th><Th>Taux (F)</Th>
+        <Th color="g">Inscrits (G)</Th><Th color="g">Présents (G)</Th><Th color="g">Admis (G)</Th><Th color="g">Taux (G)</Th>
+        <Th color="f">Inscrits (F)</Th><Th color="f">Présents (F)</Th><Th color="f">Admis (F)</Th><Th color="f">Taux (F)</Th>
       </tr></thead>
       <tbody>
         {rows.map((r, i) => (
           <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
             <Td left>{r.name}</Td>
             <Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.absents}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-            <Td>{r.inscritsGarcon}</Td><Td>{r.presentsGarcon}</Td><Td>{r.admisGarcon}</Td><Td>{pct(r.tauxGarcon)}</Td>
-            <Td>{r.inscritsFille}</Td><Td>{r.presentsFille}</Td><Td>{r.admisFille}</Td><Td>{pct(r.tauxFille)}</Td>
+            <Td color="g">{r.inscritsGarcon}</Td><Td color="g">{r.presentsGarcon}</Td><Td color="g">{r.admisGarcon}</Td><Td color="g">{pct(r.tauxGarcon)}</Td>
+            <Td color="f">{r.inscritsFille}</Td><Td color="f">{r.presentsFille}</Td><Td color="f">{r.admisFille}</Td><Td color="f">{pct(r.tauxFille)}</Td>
           </tr>
         ))}
-        <tr className="bg-gray-200 font-bold">
-          <Td left>TOTAL</Td>
-          <Td>{totals.inscritsTotal}</Td><Td>{totals.presentsTotal}</Td><Td>{totals.absents}</Td><Td>{totals.admisTotal}</Td><Td>{pct(totals.tauxTotal)}</Td>
-          <Td>{totals.inscritsGarcon}</Td><Td>{totals.presentsGarcon}</Td><Td>{totals.admisGarcon}</Td><Td>{pct(totals.tauxGarcon)}</Td>
-          <Td>{totals.inscritsFille}</Td><Td>{totals.presentsFille}</Td><Td>{totals.admisFille}</Td><Td>{pct(totals.tauxFille)}</Td>
+        <tr className="font-bold">
+          <Td left total>TOTAL</Td>
+          <Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.absents}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
+          <Td color="g" total>{totals.inscritsGarcon}</Td><Td color="g" total>{totals.presentsGarcon}</Td><Td color="g" total>{totals.admisGarcon}</Td><Td color="g" total>{pct(totals.tauxGarcon)}</Td>
+          <Td color="f" total>{totals.inscritsFille}</Td><Td color="f" total>{totals.presentsFille}</Td><Td color="f" total>{totals.admisFille}</Td><Td color="f" total>{pct(totals.tauxFille)}</Td>
         </tr>
       </tbody>
     </table>
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="border border-gray-300 px-2 py-1.5 font-semibold text-center text-gray-700">{children}</th>;
+function Th({ children, color }: { children: React.ReactNode; color?: ColColor }) {
+  const bg = color === 'g' ? 'bg-blue-100 text-blue-900' : color === 'f' ? 'bg-pink-100 text-pink-900' : 'bg-gray-100 text-gray-700';
+  return <th className={`border border-gray-300 px-2 py-1.5 font-semibold text-center ${bg}`}>{children}</th>;
 }
-function Td({ children, left }: { children: React.ReactNode; left?: boolean }) {
-  return <td className={`border border-gray-200 px-2 py-1.5 ${left ? 'text-left font-medium' : 'text-center'}`}>{children}</td>;
+function Td({ children, left, color, total }: { children: React.ReactNode; left?: boolean; color?: ColColor; total?: boolean }) {
+  const bg = color === 'g' ? (total ? 'bg-blue-100' : 'bg-blue-50') : color === 'f' ? (total ? 'bg-pink-100' : 'bg-pink-50') : total ? 'bg-gray-200' : '';
+  return <td className={`border border-gray-200 px-2 py-1.5 ${left ? 'text-left font-medium' : 'text-center'} ${bg}`}>{children}</td>;
 }
