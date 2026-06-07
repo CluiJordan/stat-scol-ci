@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { Session, ExamType } from '../types';
 import { getSessions, saveSession, deleteSession } from '../lib/storage';
+import { computeTotals, computeRow, pct } from '../lib/calculations';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
@@ -80,24 +81,25 @@ export default function Dashboard({ onOpen, onReports }: Props) {
 
   return (
     <div className="min-h-screen bg-[#F5F0EB]">
-      <header className="bg-[#0A0A0A] px-6 py-5">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 text-white">
-            <Logo size={34} />
-            <div>
+      <header className="bg-[#0A0A0A] px-4 sm:px-6 py-4 sm:py-5">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 text-white min-w-0">
+            <Logo size={34} className="shrink-0" />
+            <div className="min-w-0">
               <h1 className="text-base font-bold tracking-tight leading-none">StatScolCI</h1>
-              <p className="text-white/40 text-xs mt-0.5">Statistiques scolaires — Côte d'Ivoire</p>
+              <p className="text-white/40 text-xs mt-0.5 truncate">Statistiques scolaires — Côte d'Ivoire</p>
             </div>
           </div>
-          <Button variant="accent" onClick={() => setShowCreate(true)}>
-            + Nouvelle session
+          <Button variant="accent" onClick={() => setShowCreate(true)} className="shrink-0">
+            <span className="sm:hidden">+ Nouvelle</span>
+            <span className="hidden sm:inline">+ Nouvelle session</span>
           </Button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {sessions.length === 0 ? (
-          <div className="text-center py-28">
+          <div className="text-center py-20 sm:py-28">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white border border-[#E5DDD5] mb-5 text-[#1C2B3A]">
               <Logo size={30} />
             </div>
@@ -105,39 +107,41 @@ export default function Dashboard({ onOpen, onReports }: Props) {
             <p className="text-gray-400 text-sm mt-1.5">Cliquez sur « Nouvelle session » pour commencer</p>
           </div>
         ) : (
-          <div className="bg-white border border-[#E5DDD5] rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[#E5DDD5] bg-[#F5F0EB] px-5 py-2.5">
-              <span className="text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider">Établissement</span>
-              <span className="text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider">Actions</span>
-            </div>
-            {sessions.map((s, i) => (
-              <div
-                key={s.id}
-                className={`flex items-center justify-between gap-4 px-5 py-4 hover:bg-[#F5F0EB]/60 transition-colors ${
-                  i < sessions.length - 1 ? 'border-b border-[#E5DDD5]' : ''
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="font-semibold text-[#0A0A0A] text-sm">{s.etablissement || 'Sans nom'}</h2>
-                    <Badge color={s.examType === 'BEPC' ? 'orange' : 'navy'}>{s.examType}</Badge>
-                    {s.code && <Badge color="gray">{s.code}</Badge>}
+          <div className="bg-white border border-[#E5DDD5] rounded-xl overflow-hidden">
+            {sessions.map((s, i) => {
+              const totals = computeTotals(s.classes.map((c) => computeRow(c, s.examType)), s.examType);
+              return (
+                <div
+                  key={s.id}
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-4 hover:bg-[#F5F0EB]/60 transition-colors ${
+                    i < sessions.length - 1 ? 'border-b border-[#E5DDD5]' : ''
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-semibold text-[#0A0A0A] text-sm">{s.etablissement || 'Sans nom'}</h2>
+                      <Badge color={s.examType === 'BEPC' ? 'orange' : 'navy'}>{s.examType}</Badge>
+                      {s.code && <Badge color="gray">{s.code}</Badge>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {s.drena}{s.drena && ' — '}{s.anneeScolaire}
+                      {s.examSession ? ` — ${s.examSession}` : ''}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {s.classes.length} classe{s.classes.length !== 1 ? 's' : ''}
+                      {s.classes.length > 0 && (
+                        <span className="text-[#1C2B3A]"> · {totals.admisTotal}/{totals.presentsTotal} admis · {pct(totals.tauxTotal)}</span>
+                      )}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {s.drena}{s.drena && ' — '}{s.anneeScolaire}
-                    {s.examSession ? ` — ${s.examSession}` : ''}
-                    {' · '}{s.classes.length} classe{s.classes.length !== 1 ? 's' : ''}
-                    {s.examType === 'BEPC' ? ` · ${s.centres.length} centre${s.centres.length !== 1 ? 's' : ''}` : ''}
-                    {' · '}Modifié le {new Date(s.updatedAt).toLocaleDateString('fr-FR')}
-                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button size="sm" onClick={() => onReports(s.id)} className="flex-1 sm:flex-none justify-center">Rapports</Button>
+                    <Button size="sm" variant="primary" onClick={() => onOpen(s.id)} className="flex-1 sm:flex-none justify-center">Modifier</Button>
+                    <Button size="sm" variant="danger" onClick={() => setDeleteId(s.id)} className="shrink-0 justify-center">Suppr.</Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button size="sm" onClick={() => onReports(s.id)}>Rapports</Button>
-                  <Button size="sm" variant="primary" onClick={() => onOpen(s.id)}>Modifier</Button>
-                  <Button size="sm" variant="danger" onClick={() => setDeleteId(s.id)}>Suppr.</Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
@@ -179,13 +183,12 @@ export default function Dashboard({ onOpen, onReports }: Props) {
             placeholder="Ex: COLLEGE LA BONNE SEMENCE TAGO GAGNOA"
             uppercase
           />
-          <div className="flex gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Code"
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               placeholder="Ex: 013077"
-              className="flex-1"
               uppercase
             />
             <Select
@@ -193,7 +196,6 @@ export default function Dashboard({ onOpen, onReports }: Props) {
               options={getSchoolYearOptions()}
               value={form.anneeScolaire}
               onChange={(e) => setForm((f) => ({ ...f, anneeScolaire: e.target.value }))}
-              className="flex-1"
             />
           </div>
           <Input
