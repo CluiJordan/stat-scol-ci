@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import type { Session, Centre } from '../types';
@@ -19,6 +19,8 @@ interface Props {
 
 type ReportType = 'bepc-general' | 'bepc-etablissement' | 'bac';
 
+const PIE_COLORS = ['#1C2B3A', '#F4732A', '#2D4155', '#D95F18', '#3D5468', '#B04E12', '#4D6678', '#8C3B0C', '#0F1E2C', '#C05514'];
+
 export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const session = getSession(sessionId)!;
   const [activeReport, setActiveReport] = useState<ReportType>(
@@ -31,21 +33,14 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
   const truncate = (s: string) => s.length > 14 ? s.slice(0, 13) + '…' : s;
 
-  const tauxData = computed.map((r) => ({
-    name: truncate(r.name),
-    'Total': Math.round(r.tauxTotal * 100),
-    'Garçons': Math.round(r.tauxGarcon * 100),
-    'Filles': Math.round(r.tauxFille * 100),
-  }));
+  const admisData = computed
+    .filter((r) => r.admisTotal > 0)
+    .map((r) => ({ name: truncate(r.name), value: r.admisTotal }));
 
-  const effectifsData = computed.map((r) => ({
-    name: truncate(r.name),
-    'Inscrits': r.inscritsTotal,
-    'Présents': r.presentsTotal,
-    'Admis': r.admisTotal,
-  }));
-
-  const chartHeight = Math.min(480, Math.max(200, computed.length * 48 + 60));
+  const genderData = [
+    { name: 'Garçons', value: totals.admisGarcon },
+    { name: 'Filles', value: totals.admisFille },
+  ].filter((d) => d.value > 0);
 
   function handleExportPdf() {
     if (activeReport === 'bepc-general') exportBEPCGeneral(session);
@@ -55,16 +50,16 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
   return (
     <div className="min-h-screen bg-[#F5F0EB]">
-      <header className="bg-[#0A0A0A] px-6 py-5">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1.5 transition-colors shrink-0">
+      <header className="bg-[#0A0A0A] px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-start gap-4">
+          <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1.5 transition-colors shrink-0 mt-0.5">
             ← Retour
           </button>
-          <div className="flex items-center gap-3 flex-1 min-w-0 text-white">
-            <Logo size={28} />
+          <div className="flex items-start gap-3 flex-1 min-w-0 text-white">
+            <Logo size={28} className="mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <h1 className="font-bold truncate text-sm leading-none">{session.etablissement}</h1>
-              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}</p>
+              <h1 className="font-bold text-sm leading-tight">{session.etablissement}</h1>
+              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}{session.examSession ? ` — ${session.examSession}` : ''}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -98,7 +93,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
       <main className="max-w-6xl mx-auto px-6 py-6 space-y-5">
         {/* Document officiel */}
-        <div className="bg-white border border-[#E5DDD5] rounded-xl overflow-hidden">
+        <div className="bg-white border border-[#E5DDD5] rounded-lg overflow-hidden">
           <div className="p-6 border-b border-[#E5DDD5]">
             <div className="flex justify-between text-xs text-gray-600 mb-2">
               <div>
@@ -112,6 +107,12 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
               <div className="text-right">
                 <p className="font-medium">ANNEE SCOLAIRE</p>
                 <p>{session.anneeScolaire}</p>
+                {session.examSession && (
+                  <>
+                    <p className="font-medium mt-1">SESSION</p>
+                    <p>{session.examSession}</p>
+                  </>
+                )}
               </div>
             </div>
             {activeReport === 'bepc-general' && <h2 className="text-xl font-bold text-center mt-4">Statistique générale</h2>}
@@ -142,74 +143,68 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           <StatCard label="Taux filles" value={pct(totals.tauxFille)} />
         </div>
 
-        {/* Graphiques */}
+        {/* Graphiques camembert */}
         {computed.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Graphique 1 : Taux d'admission */}
-            <div className="bg-white border border-[#E5DDD5] rounded-xl p-5">
-              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Taux d’admission par classe</h3>
-              <p className="text-xs text-gray-400 mb-4">En pourcentage (%)</p>
-              <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart
-                  layout="vertical"
-                  data={tauxData}
-                  margin={{ top: 0, right: 36, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5DDD5" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    tickFormatter={(v) => `${v}%`}
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 10, fill: '#1C2B3A' }}
-                    width={95}
-                  />
-                  <Tooltip
-                    formatter={(v: number) => [`${v}%`]}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
-                  <Bar dataKey="Total" fill="#0A0A0A" radius={[0, 4, 4, 0]} maxBarSize={14} />
-                  <Bar dataKey="Garçons" fill="#1C2B3A" radius={[0, 4, 4, 0]} maxBarSize={14} />
-                  <Bar dataKey="Filles" fill="#F4732A" radius={[0, 4, 4, 0]} maxBarSize={14} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="bg-white border border-[#E5DDD5] rounded-lg p-5">
+              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Répartition des admis par classe</h3>
+              <p className="text-xs text-gray-400 mb-2">Nombre d'admis par classe</p>
+              {admisData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={admisData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={95}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {admisData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => [v, 'Admis']}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-gray-400 text-sm py-16">Aucun admis enregistré</p>
+              )}
             </div>
 
-            {/* Graphique 2 : Effectifs */}
-            <div className="bg-white border border-[#E5DDD5] rounded-xl p-5">
-              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Effectifs par classe</h3>
-              <p className="text-xs text-gray-400 mb-4">Inscrits → Présents → Admis</p>
-              <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart
-                  layout="vertical"
-                  data={effectifsData}
-                  margin={{ top: 0, right: 36, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5DDD5" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 10, fill: '#1C2B3A' }}
-                    width={95}
-                  />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
-                  <Bar dataKey="Inscrits" fill="#1C2B3A" radius={[0, 4, 4, 0]} maxBarSize={14} />
-                  <Bar dataKey="Présents" fill="#5B8DB8" radius={[0, 4, 4, 0]} maxBarSize={14} />
-                  <Bar dataKey="Admis" fill="#F4732A" radius={[0, 4, 4, 0]} maxBarSize={14} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="bg-white border border-[#E5DDD5] rounded-lg p-5">
+              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Garçons vs Filles</h3>
+              <p className="text-xs text-gray-400 mb-2">Parmi les admis</p>
+              {genderData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={genderData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={95}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      <Cell fill="#1C2B3A" />
+                      <Cell fill="#F4732A" />
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => [v, 'Admis']}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-gray-400 text-sm py-16">Aucune donnée</p>
+              )}
             </div>
           </div>
         )}
@@ -222,7 +217,7 @@ function StatCard({ label, value, highlight }: { label: string; value: string | 
   const style = highlight === 'success' ? 'bg-emerald-50 border-emerald-200' : highlight === 'warn' ? 'bg-orange-50 border-orange-200' : 'bg-white border-[#E5DDD5]';
   const valueStyle = highlight === 'success' ? 'text-emerald-700' : highlight === 'warn' ? 'text-[#F4732A]' : 'text-[#0A0A0A]';
   return (
-    <div className={`rounded-xl px-5 py-4 text-center min-w-[120px] border ${style}`}>
+    <div className={`rounded-lg px-5 py-4 text-center min-w-[120px] border ${style}`}>
       <p className={`text-2xl font-bold ${valueStyle}`}>{value}</p>
       <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mt-1">{label}</p>
     </div>

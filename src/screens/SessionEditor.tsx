@@ -55,7 +55,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   }
 
   function addCentre() {
-    const centre: Centre = { id: uuid(), name: `Centre ${session.centres.length + 1}` };
+    const centre: Centre = { id: uuid(), name: `CENTRE ${session.centres.length + 1}` };
     persist({ ...session, centres: [...session.centres, centre] });
   }
 
@@ -109,16 +109,16 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
   return (
     <div className="min-h-screen bg-[#F5F0EB]">
-      <header className="bg-[#0A0A0A] px-6 py-5">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1.5 transition-colors shrink-0">
+      <header className="bg-[#0A0A0A] px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-start gap-4">
+          <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1.5 transition-colors shrink-0 mt-0.5">
             ← Retour
           </button>
-          <div className="flex items-center gap-3 flex-1 min-w-0 text-white">
-            <Logo size={28} />
+          <div className="flex items-start gap-3 flex-1 min-w-0 text-white">
+            <Logo size={28} className="mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <h1 className="font-bold truncate text-sm leading-none">{session.etablissement || 'Session sans nom'}</h1>
-              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}</p>
+              <h1 className="font-bold text-sm leading-tight">{session.etablissement || 'Session sans nom'}</h1>
+              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}{session.examSession ? ` — ${session.examSession}` : ''}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -146,7 +146,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
       <main className="max-w-6xl mx-auto px-6 py-6">
         {tab === 'config' && (
-          <div className="bg-white rounded-xl border border-[#E5DDD5] p-6 max-w-2xl">
+          <div className="bg-white rounded-lg border border-[#E5DDD5] p-6 max-w-2xl">
             <h2 className="font-bold text-[#0A0A0A] mb-5">Informations générales</h2>
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
@@ -162,32 +162,35 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 label="Établissement"
                 value={session.etablissement}
                 onChange={(e) => setField('etablissement', e.target.value)}
+                uppercase
               />
               <div className="grid grid-cols-2 gap-4">
                 <Input
                   label="Code établissement"
                   value={session.code}
                   onChange={(e) => setField('code', e.target.value)}
+                  uppercase
                 />
                 <Input
                   label="DRENA"
                   value={session.drena}
                   onChange={(e) => setField('drena', e.target.value)}
+                  uppercase
                 />
               </div>
               <Input
                 label="Ministère"
                 value={session.ministere}
                 onChange={(e) => setField('ministere', e.target.value)}
+                uppercase
               />
-              {isBac && (
-                <Input
-                  label="Session"
-                  value={session.examSession}
-                  onChange={(e) => setField('examSession', e.target.value)}
-                  placeholder="Ex: session 2025"
-                />
-              )}
+              <Input
+                label="Session"
+                value={session.examSession}
+                onChange={(e) => setField('examSession', e.target.value)}
+                placeholder="Ex: SESSION 2025"
+                uppercase
+              />
             </div>
           </div>
         )}
@@ -195,7 +198,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         {tab === 'classes' && (
           <div className="flex flex-col gap-5">
             {!isBac && (
-              <div className="bg-white rounded-xl border border-[#E5DDD5] p-5">
+              <div className="bg-white rounded-lg border border-[#E5DDD5] p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-bold text-[#0A0A0A]">Centres d'examen</h2>
                   <Button size="sm" variant="primary" onClick={addCentre}>+ Ajouter un centre</Button>
@@ -206,14 +209,14 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <div className="flex flex-col gap-2">
                   {session.centres.map((c) => (
                     <div key={c.id} className="flex items-center gap-2">
-                      <Input value={c.name} onChange={(e) => updateCentre(c.id, e.target.value)} className="flex-1" />
+                      <Input value={c.name} onChange={(e) => updateCentre(c.id, e.target.value)} className="flex-1" uppercase />
                       <Button size="sm" variant="danger" onClick={() => deleteCentre(c.id)}>✕</Button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <div className="bg-white rounded-xl border border-[#E5DDD5] p-5">
+            <div className="bg-white rounded-lg border border-[#E5DDD5] p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-[#0A0A0A]">Classes</h2>
                 <div className="flex gap-2">
@@ -227,7 +230,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               <div className="flex flex-col gap-2">
                 {session.classes.map((cls) => (
                   <div key={cls.id} className="flex items-center gap-2">
-                    <Input value={cls.name} onChange={(e) => updateClass(cls.id, 'name', e.target.value)} placeholder="Ex: 3EME 1" className="flex-1" />
+                    <Input value={cls.name} onChange={(e) => updateClass(cls.id, 'name', e.target.value)} placeholder="Ex: 3EME 1" className="flex-1" uppercase />
                     {!isBac && (
                       <Select options={centreOptions} value={cls.centreId ?? ''} onChange={(e) => updateClass(cls.id, 'centreId', e.target.value || null)} className="flex-1" />
                     )}
@@ -240,8 +243,8 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         )}
 
         {tab === 'saisie' && (
-          <div className="bg-white rounded-xl border border-[#E5DDD5] overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5DDD5]">
+          <div className="bg-white rounded-lg border border-[#E5DDD5] overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#E5DDD5]">
               <h2 className="font-bold text-[#0A0A0A]">Saisie des données</h2>
               <Button size="sm" onClick={() => setShowImport(true)}>Importer Excel/CSV</Button>
             </div>
@@ -249,38 +252,38 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               <p className="text-center text-gray-400 py-12 text-sm">Ajoutez d'abord des classes dans l'onglet « Classes »</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-[#F5F0EB] border-b border-[#E5DDD5]">
-                    <tr>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider sticky left-0 bg-[#F5F0EB] min-w-[140px]">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-[#1C2B3A] text-white">
+                      <th className="border border-[#2D4155] text-left px-3 py-2.5 text-xs font-semibold uppercase tracking-wider sticky left-0 bg-[#1C2B3A] min-w-[140px]">
                         {isBac ? 'Classe & Série' : 'Classe'}
                       </th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Inscrits G</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Inscrits F</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Inscrits G</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Inscrits F</th>
                       {isBac ? (
                         <>
-                          <th className="px-3 py-2.5 text-xs font-semibold text-[#D95F18] uppercase tracking-wider whitespace-nowrap">Présents G</th>
-                          <th className="px-3 py-2.5 text-xs font-semibold text-[#D95F18] uppercase tracking-wider whitespace-nowrap">Présents F</th>
+                          <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-[#F4732A]">Présents G</th>
+                          <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-[#F4732A]">Présents F</th>
                         </>
                       ) : (
-                        <th className="px-3 py-2.5 text-xs font-semibold text-[#D95F18] uppercase tracking-wider whitespace-nowrap">Cand. Présents</th>
+                        <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-[#F4732A]">Cand. Présents</th>
                       )}
-                      <th className="px-3 py-2.5 text-xs font-semibold text-emerald-700 uppercase tracking-wider whitespace-nowrap">Admis G</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-emerald-700 uppercase tracking-wider whitespace-nowrap">Admis F</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Total inscrits</th>
-                      {isBac && <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Absents</th>}
-                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Total admis</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Taux</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Taux G</th>
-                      <th className="px-3 py-2.5 text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider bg-[#1C2B3A]/5 whitespace-nowrap">Taux F</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-emerald-300">Admis G</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-emerald-300">Admis F</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Total inscrits</th>
+                      {isBac && <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Absents</th>}
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Total admis</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Taux</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Taux G</th>
+                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Taux F</th>
                     </tr>
                   </thead>
                   <tbody>
                     {session.classes.map((cls, i) => {
                       const computed = computeRow(cls, session.examType);
                       return (
-                        <tr key={cls.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F5F0EB]/40'}>
-                          <td className="px-3 py-2 sticky left-0 bg-inherit font-semibold text-[#0A0A0A]">{cls.name || '—'}</td>
+                        <tr key={cls.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="border border-gray-200 px-3 py-0 h-9 sticky left-0 bg-inherit font-semibold text-[#0A0A0A] text-xs">{cls.name || '—'}</td>
                           <NumCell value={cls.inscritsGarcon} onChange={(v) => updateClass(cls.id, 'inscritsGarcon', v)} />
                           <NumCell value={cls.inscritsFille} onChange={(v) => updateClass(cls.id, 'inscritsFille', v)} />
                           {isBac ? (
@@ -293,12 +296,12 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                           )}
                           <NumCell value={cls.admisGarcon} onChange={(v) => updateClass(cls.id, 'admisGarcon', v)} />
                           <NumCell value={cls.admisFille} onChange={(v) => updateClass(cls.id, 'admisFille', v)} />
-                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5 font-semibold">{computed.inscritsTotal}</td>
-                          {isBac && <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5">{computed.absents}</td>}
-                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5 font-semibold">{computed.admisTotal}</td>
-                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5 font-semibold">{pct(computed.tauxTotal)}</td>
-                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5">{pct(computed.tauxGarcon)}</td>
-                          <td className="px-3 py-2 text-center text-[#1C2B3A] bg-[#1C2B3A]/5">{pct(computed.tauxFille)}</td>
+                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs text-[#1C2B3A] bg-[#F0F4F8] font-semibold">{computed.inscritsTotal}</td>
+                          {isBac && <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs text-[#1C2B3A] bg-[#F0F4F8]">{computed.absents}</td>}
+                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs text-[#1C2B3A] bg-[#F0F4F8] font-semibold">{computed.admisTotal}</td>
+                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs font-semibold bg-[#F0F4F8] text-[#1C2B3A]">{pct(computed.tauxTotal)}</td>
+                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs bg-[#F0F4F8] text-[#1C2B3A]">{pct(computed.tauxGarcon)}</td>
+                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs bg-[#F0F4F8] text-[#1C2B3A]">{pct(computed.tauxFille)}</td>
                         </tr>
                       );
                     })}
@@ -336,14 +339,14 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 function NumCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <td className="px-1 py-1.5">
+    <td className="border border-gray-200 p-0 h-9" style={{ minWidth: '56px' }}>
       <input
         type="number"
         min={0}
         value={value === 0 ? '' : value}
         placeholder="0"
         onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
-        className="w-16 text-center border border-[#E5DDD5] rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F4732A]/30 focus:border-[#F4732A] bg-white transition-all"
+        className="w-full h-full text-center px-1 text-sm focus:outline-none focus:bg-blue-50 bg-transparent"
       />
     </td>
   );
