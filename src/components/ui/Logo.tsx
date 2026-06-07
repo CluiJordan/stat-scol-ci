@@ -1,8 +1,9 @@
-export default function Logo({ size = 32 }: { size?: number }) {
+export default function Logo({ size = 32, className }: { size?: number; className?: string }) {
   return (
     <svg
       width={size}
       height={size}
+      className={className}
       viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
