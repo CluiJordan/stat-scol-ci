@@ -46,7 +46,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
     drena: '',
     anneeScolaire: getCurrentSchoolYear(),
     examType: 'BEPC' as ExamType,
-    examSession: 'session 2025',
+    examSession: 'SESSION 2025',
     ministere: DEFAULT_MINISTERE,
   });
 
@@ -104,25 +104,28 @@ export default function Dashboard({ onOpen, onReports }: Props) {
             <p className="text-gray-400 text-sm mt-1.5">Cliquez sur « Nouvelle session » pour commencer</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {sessions.map((s) => (
+          <div className="bg-white border border-[#E5DDD5] rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#E5DDD5] bg-[#F5F0EB] px-5 py-2.5">
+              <span className="text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider">Établissement</span>
+              <span className="text-xs font-semibold text-[#1C2B3A] uppercase tracking-wider">Actions</span>
+            </div>
+            {sessions.map((s, i) => (
               <div
                 key={s.id}
-                className="bg-white rounded-xl border border-[#E5DDD5] border-l-4 p-5 flex items-center justify-between gap-4 hover:shadow-md transition-shadow duration-200"
-                style={{ borderLeftColor: s.examType === 'BEPC' ? '#F4732A' : '#1C2B3A' }}
+                className={`flex items-center justify-between gap-4 px-5 py-4 hover:bg-[#F5F0EB]/60 transition-colors ${
+                  i < sessions.length - 1 ? 'border-b border-[#E5DDD5]' : ''
+                }`}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="font-bold text-[#0A0A0A] text-base truncate">{s.etablissement || 'Sans nom'}</h2>
+                    <h2 className="font-semibold text-[#0A0A0A] text-sm">{s.etablissement || 'Sans nom'}</h2>
                     <Badge color={s.examType === 'BEPC' ? 'orange' : 'navy'}>{s.examType}</Badge>
                     {s.code && <Badge color="gray">{s.code}</Badge>}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {s.drena} — {s.anneeScolaire}
-                    {s.examType === 'BAC' && s.examSession ? ` — ${s.examSession}` : ''}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {s.classes.length} classe{s.classes.length !== 1 ? 's' : ''}
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {s.drena}{s.drena && ' — '}{s.anneeScolaire}
+                    {s.examSession ? ` — ${s.examSession}` : ''}
+                    {' · '}{s.classes.length} classe{s.classes.length !== 1 ? 's' : ''}
                     {s.examType === 'BEPC' ? ` · ${s.centres.length} centre${s.centres.length !== 1 ? 's' : ''}` : ''}
                     {' · '}Modifié le {new Date(s.updatedAt).toLocaleDateString('fr-FR')}
                   </p>
@@ -173,6 +176,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
             value={form.etablissement}
             onChange={(e) => setForm((f) => ({ ...f, etablissement: e.target.value }))}
             placeholder="Ex: COLLEGE LA BONNE SEMENCE TAGO GAGNOA"
+            uppercase
           />
           <div className="flex gap-3">
             <Input
@@ -181,6 +185,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               placeholder="Ex: 013077"
               className="flex-1"
+              uppercase
             />
             <Select
               label="Année scolaire"
@@ -195,15 +200,15 @@ export default function Dashboard({ onOpen, onReports }: Props) {
             value={form.drena}
             onChange={(e) => setForm((f) => ({ ...f, drena: e.target.value }))}
             placeholder="Ex: DRENA GAGNOA"
+            uppercase
           />
-          {form.examType === 'BAC' && (
-            <Input
-              label="Session"
-              value={form.examSession}
-              onChange={(e) => setForm((f) => ({ ...f, examSession: e.target.value }))}
-              placeholder="Ex: session 2025"
-            />
-          )}
+          <Input
+            label="Session"
+            value={form.examSession}
+            onChange={(e) => setForm((f) => ({ ...f, examSession: e.target.value }))}
+            placeholder="Ex: SESSION 2025"
+            uppercase
+          />
         </div>
       </Modal>
 
