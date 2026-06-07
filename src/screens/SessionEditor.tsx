@@ -23,6 +23,19 @@ function emptyRow(centreId: string | null = null): ClassRow {
   return { id: uuid(), name: '', centreId, inscritsGarcon: 0, inscritsFille: 0, presentsTotal: 0, presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0 };
 }
 
+function getSchoolYearOptions(currentValue: string): { value: string; label: string }[] {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const currentStart = month >= 9 ? year : year - 1;
+  const years = Array.from({ length: 6 }, (_, i) => {
+    const start = currentStart - (5 - i);
+    return `${start} - ${start + 1}`;
+  });
+  if (!years.includes(currentValue)) years.unshift(currentValue);
+  return years.map((y) => ({ value: y, label: y }));
+}
+
 export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [session, setSession] = useState<Session>(() => getSession(sessionId)!);
   const [tab, setTab] = useState<Tab>('config');
@@ -138,16 +151,42 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Type d'examen" value={session.examType} disabled />
-                <Input label="Année scolaire" value={session.anneeScolaire} onChange={(e) => setField('anneeScolaire', e.target.value)} />
+                <Select
+                  label="Année scolaire"
+                  options={getSchoolYearOptions(session.anneeScolaire)}
+                  value={session.anneeScolaire}
+                  onChange={(e) => setField('anneeScolaire', e.target.value)}
+                />
               </div>
-              <Input label="Établissement" value={session.etablissement} onChange={(e) => setField('etablissement', e.target.value)} />
+              <Input
+                label="Établissement"
+                value={session.etablissement}
+                onChange={(e) => setField('etablissement', e.target.value)}
+              />
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Code établissement" value={session.code} onChange={(e) => setField('code', e.target.value)} />
-                <Input label="DRENA" value={session.drena} onChange={(e) => setField('drena', e.target.value)} />
+                <Input
+                  label="Code établissement"
+                  value={session.code}
+                  onChange={(e) => setField('code', e.target.value)}
+                />
+                <Input
+                  label="DRENA"
+                  value={session.drena}
+                  onChange={(e) => setField('drena', e.target.value)}
+                />
               </div>
-              <Input label="Ministère" value={session.ministere} onChange={(e) => setField('ministere', e.target.value)} />
+              <Input
+                label="Ministère"
+                value={session.ministere}
+                onChange={(e) => setField('ministere', e.target.value)}
+              />
               {isBac && (
-                <Input label="Session" value={session.examSession} onChange={(e) => setField('examSession', e.target.value)} placeholder="Ex: session 2025" />
+                <Input
+                  label="Session"
+                  value={session.examSession}
+                  onChange={(e) => setField('examSession', e.target.value)}
+                  placeholder="Ex: session 2025"
+                />
               )}
             </div>
           </div>

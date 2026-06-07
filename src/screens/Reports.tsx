@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
 import { computeRow, computeTotals, pct } from '../lib/calculations';
@@ -24,6 +28,24 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const isBac = session.examType === 'BAC';
   const computed = session.classes.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
+
+  const truncate = (s: string) => s.length > 14 ? s.slice(0, 13) + '…' : s;
+
+  const tauxData = computed.map((r) => ({
+    name: truncate(r.name),
+    'Total': Math.round(r.tauxTotal * 100),
+    'Garçons': Math.round(r.tauxGarcon * 100),
+    'Filles': Math.round(r.tauxFille * 100),
+  }));
+
+  const effectifsData = computed.map((r) => ({
+    name: truncate(r.name),
+    'Inscrits': r.inscritsTotal,
+    'Présents': r.presentsTotal,
+    'Admis': r.admisTotal,
+  }));
+
+  const chartHeight = Math.min(480, Math.max(200, computed.length * 48 + 60));
 
   function handleExportPdf() {
     if (activeReport === 'bepc-general') exportBEPCGeneral(session);
@@ -74,7 +96,8 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
         </div>
       )}
 
-      <main className="max-w-6xl mx-auto px-6 py-6">
+      <main className="max-w-6xl mx-auto px-6 py-6 space-y-5">
+        {/* Document officiel */}
         <div className="bg-white border border-[#E5DDD5] rounded-xl overflow-hidden">
           <div className="p-6 border-b border-[#E5DDD5]">
             <div className="flex justify-between text-xs text-gray-600 mb-2">
@@ -91,12 +114,8 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                 <p>{session.anneeScolaire}</p>
               </div>
             </div>
-            {activeReport === 'bepc-general' && (
-              <h2 className="text-xl font-bold text-center mt-4">Statistique générale</h2>
-            )}
-            {activeReport === 'bepc-etablissement' && (
-              <h2 className="text-xl font-bold text-center mt-4">Statistique par établissement</h2>
-            )}
+            {activeReport === 'bepc-general' && <h2 className="text-xl font-bold text-center mt-4">Statistique générale</h2>}
+            {activeReport === 'bepc-etablissement' && <h2 className="text-xl font-bold text-center mt-4">Statistique par établissement</h2>}
             {activeReport === 'bac' && (
               <div className="text-center mt-4">
                 <h2 className="text-lg font-bold uppercase">{`STATISTIQUE ${session.etablissement.toUpperCase()}`}</h2>
@@ -113,7 +132,8 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
+        {/* Statistiques résumées */}
+        <div className="flex flex-wrap gap-3">
           <StatCard label="Inscrits" value={totals.inscritsTotal} />
           <StatCard label="Présents" value={totals.presentsTotal} />
           <StatCard label="Admis" value={totals.admisTotal} />
@@ -121,6 +141,78 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           <StatCard label="Taux garçons" value={pct(totals.tauxGarcon)} />
           <StatCard label="Taux filles" value={pct(totals.tauxFille)} />
         </div>
+
+        {/* Graphiques */}
+        {computed.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Graphique 1 : Taux d'admission */}
+            <div className="bg-white border border-[#E5DDD5] rounded-xl p-5">
+              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Taux d’admission par classe</h3>
+              <p className="text-xs text-gray-400 mb-4">En pourcentage (%)</p>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <BarChart
+                  layout="vertical"
+                  data={tauxData}
+                  margin={{ top: 0, right: 36, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5DDD5" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}%`}
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: '#1C2B3A' }}
+                    width={95}
+                  />
+                  <Tooltip
+                    formatter={(v: number) => [`${v}%`]}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
+                  <Bar dataKey="Total" fill="#0A0A0A" radius={[0, 4, 4, 0]} maxBarSize={14} />
+                  <Bar dataKey="Garçons" fill="#1C2B3A" radius={[0, 4, 4, 0]} maxBarSize={14} />
+                  <Bar dataKey="Filles" fill="#F4732A" radius={[0, 4, 4, 0]} maxBarSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Graphique 2 : Effectifs */}
+            <div className="bg-white border border-[#E5DDD5] rounded-xl p-5">
+              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Effectifs par classe</h3>
+              <p className="text-xs text-gray-400 mb-4">Inscrits → Présents → Admis</p>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <BarChart
+                  layout="vertical"
+                  data={effectifsData}
+                  margin={{ top: 0, right: 36, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5DDD5" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: '#1C2B3A' }}
+                    width={95}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
+                  <Bar dataKey="Inscrits" fill="#1C2B3A" radius={[0, 4, 4, 0]} maxBarSize={14} />
+                  <Bar dataKey="Présents" fill="#5B8DB8" radius={[0, 4, 4, 0]} maxBarSize={14} />
+                  <Bar dataKey="Admis" fill="#F4732A" radius={[0, 4, 4, 0]} maxBarSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -140,13 +232,11 @@ function StatCard({ label, value, highlight }: { label: string; value: string | 
 function BEPCGeneralTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
   return (
     <table className="w-full text-xs border-collapse">
-      <thead>
-        <tr className="bg-gray-100">
-          <Th>Classe</Th><Th>Candidats inscrits</Th><Th>Candidats Présents</Th><Th>Admis</Th><Th>Taux d'admission</Th>
-          <Th>Inscrits Garçon</Th><Th>Admis Garçon</Th><Th>Taux d'admission Garçon</Th>
-          <Th>Inscrits Fille</Th><Th>Admis Fille</Th><Th>Taux d'admission Fille</Th>
-        </tr>
-      </thead>
+      <thead><tr className="bg-gray-100">
+        <Th>Classe</Th><Th>Candidats inscrits</Th><Th>Candidats Présents</Th><Th>Admis</Th><Th>Taux d'admission</Th>
+        <Th>Inscrits Garçon</Th><Th>Admis Garçon</Th><Th>Taux d'admission Garçon</Th>
+        <Th>Inscrits Fille</Th><Th>Admis Fille</Th><Th>Taux d'admission Fille</Th>
+      </tr></thead>
       <tbody>
         {rows.map((r, i) => (
           <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>

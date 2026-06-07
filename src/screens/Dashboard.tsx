@@ -6,6 +6,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
 import Logo from '../components/ui/Logo';
 
 interface Props {
@@ -15,6 +16,26 @@ interface Props {
 
 const DEFAULT_MINISTERE = "MINISTERE DE L'EDUCATION NATIONALE ET DE L'ALPHABETISATION";
 
+function getCurrentSchoolYear(): string {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const start = month >= 9 ? year : year - 1;
+  return `${start} - ${start + 1}`;
+}
+
+function getSchoolYearOptions(): { value: string; label: string }[] {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const currentStart = month >= 9 ? year : year - 1;
+  return Array.from({ length: 6 }, (_, i) => {
+    const start = currentStart - (5 - i);
+    const label = `${start} - ${start + 1}`;
+    return { value: label, label };
+  });
+}
+
 export default function Dashboard({ onOpen, onReports }: Props) {
   const [sessions, setSessions] = useState<Session[]>(getSessions);
   const [showCreate, setShowCreate] = useState(false);
@@ -23,7 +44,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
     etablissement: '',
     code: '',
     drena: '',
-    anneeScolaire: '2024 - 2025',
+    anneeScolaire: getCurrentSchoolYear(),
     examType: 'BEPC' as ExamType,
     examSession: 'session 2025',
     ministere: DEFAULT_MINISTERE,
@@ -147,14 +168,41 @@ export default function Dashboard({ onOpen, onReports }: Props) {
               onClick={() => setForm((f) => ({ ...f, examType: 'BAC' }))}
             >BAC</button>
           </div>
-          <Input label="Établissement *" value={form.etablissement} onChange={(e) => setForm((f) => ({ ...f, etablissement: e.target.value }))} placeholder="Ex: COLLEGE LA BONNE SEMENCE TAGO GAGNOA" />
+          <Input
+            label="Établissement *"
+            value={form.etablissement}
+            onChange={(e) => setForm((f) => ({ ...f, etablissement: e.target.value }))}
+            placeholder="Ex: COLLEGE LA BONNE SEMENCE TAGO GAGNOA"
+          />
           <div className="flex gap-3">
-            <Input label="Code" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="Ex: 013077" className="flex-1" />
-            <Input label="Année scolaire" value={form.anneeScolaire} onChange={(e) => setForm((f) => ({ ...f, anneeScolaire: e.target.value }))} className="flex-1" />
+            <Input
+              label="Code"
+              value={form.code}
+              onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+              placeholder="Ex: 013077"
+              className="flex-1"
+            />
+            <Select
+              label="Année scolaire"
+              options={getSchoolYearOptions()}
+              value={form.anneeScolaire}
+              onChange={(e) => setForm((f) => ({ ...f, anneeScolaire: e.target.value }))}
+              className="flex-1"
+            />
           </div>
-          <Input label="DRENA" value={form.drena} onChange={(e) => setForm((f) => ({ ...f, drena: e.target.value }))} placeholder="Ex: DRENA GAGNOA" />
+          <Input
+            label="DRENA"
+            value={form.drena}
+            onChange={(e) => setForm((f) => ({ ...f, drena: e.target.value }))}
+            placeholder="Ex: DRENA GAGNOA"
+          />
           {form.examType === 'BAC' && (
-            <Input label="Session" value={form.examSession} onChange={(e) => setForm((f) => ({ ...f, examSession: e.target.value }))} placeholder="Ex: session 2025" />
+            <Input
+              label="Session"
+              value={form.examSession}
+              onChange={(e) => setForm((f) => ({ ...f, examSession: e.target.value }))}
+              placeholder="Ex: session 2025"
+            />
           )}
         </div>
       </Modal>
