@@ -186,7 +186,7 @@ export function SelectInput({ value, onChange, options, style }: {
 /* ---------- Toast ---------- */
 export function useToast(): [React.ReactNode, (msg: string) => void] {
   const [msg, setMsg] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const show = (m: string) => {
     setMsg(m);
     clearTimeout(timer.current);

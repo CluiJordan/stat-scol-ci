@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid';
 import type { Session, ExamType } from '../types';
 import { getSessions, saveSession, deleteSession } from '../lib/storage';
 import { computeTotals, computeRow, pct } from '../lib/calculations';
-import { Wordmark, SealMark, Tag, Masthead, Modal, Field, TextInput, SelectInput } from '../components/ui/design';
+import { SealMark, Tag, Masthead, Modal, Field, TextInput, SelectInput } from '../components/ui/design';
 
 const DEFAULT_MINISTERE =
   "MINISTÈRE DE L'ÉDUCATION NATIONALE, DE L'ALPHABÉTISATION, DE L'ENSEIGNEMENT TECHNIQUE ET DE LA FORMATION PROFESSIONNEL";
@@ -79,7 +79,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
 
       <div className="shell" style={{ paddingTop: 36, paddingBottom: 80 }}>
         <div className="rise" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
-          <div className="eyebrow">Statistiques d’examens · BEPC &amp; BAC · Côte d’Ivoire</div>
+          <div className="eyebrow">Statistiques d'examens · BEPC &amp; BAC · Côte d'Ivoire</div>
           <div className="eyebrow" style={{ whiteSpace: 'nowrap' }}>
             <span className="display tnum" style={{ fontSize: 17, color: 'var(--ink)' }}>{String(sessions.length).padStart(2, '0')}</span> sessions
           </div>

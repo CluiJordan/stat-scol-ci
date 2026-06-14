@@ -39,7 +39,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [saved, setSaved] = useState(false);
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const persist = useCallback((s: Session) => {
     setSession(s);
@@ -123,7 +123,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             <SectionHead n="01" title="Informations générales" desc="Identité officielle du relevé, reprise sur les exports PDF et Excel." />
             <div style={{ display: 'grid', gap: 22, marginTop: 28 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 22 }}>
-                <Field label="Type d’examen"><TextInput value={session.examType} disabled /></Field>
+                <Field label="Type d'examen"><TextInput value={session.examType} disabled /></Field>
                 <Field label="Année scolaire"><SelectInput value={session.anneeScolaire} options={schoolYearOptions(session.anneeScolaire)} onChange={(v) => setField('anneeScolaire', v)} /></Field>
               </div>
               <Field label="Établissement"><TextInput value={session.etablissement} upper onChange={(v) => setField('etablissement', v)} /></Field>
@@ -142,11 +142,11 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             {!isBac && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
-                  <SectionHead n="02" title="Centres d’examen" desc="Regroupez les classes par centre pour le rapport par établissement." />
+                  <SectionHead n="02" title="Centres d'examen" desc="Regroupez les classes par centre pour le rapport par établissement." />
                   <button className="btn btn--sm" onClick={addCentre}>+ Centre</button>
                 </div>
                 <div style={{ marginTop: 22 }}>
-                  {session.centres.length === 0 && <Placeholder text="Aucun centre pour l’instant." />}
+                  {session.centres.length === 0 && <Placeholder text="Aucun centre pour l'instant." />}
                   {session.centres.map((c, i) => (
                     <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                       <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
@@ -159,7 +159,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             )}
             <div>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                <SectionHead n={isBac ? '02' : '·'} title="Classes" desc="Déclarez les classes ; saisissez les chiffres à l’étape suivante." />
+                <SectionHead n={isBac ? '02' : '·'} title="Classes" desc="Déclarez les classes ; saisissez les chiffres à l'étape suivante." />
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
                   <button className="btn btn--sm btn--solid" onClick={addClass}>+ Classe</button>
@@ -196,7 +196,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <span style={{ color: 'var(--orange-d)', fontSize: 18, lineHeight: 1 }}>▲</span>
                 <div>
                   <div className="mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--orange-d)', letterSpacing: '0.04em' }}>{totalErrors} VALEUR{totalErrors > 1 ? 'S' : ''} INCOHÉRENTE{totalErrors > 1 ? 'S' : ''}</div>
-                  <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 3 }}>Les cellules en orange sont impossibles (admis &gt; présents, présents &gt; inscrits…). Les taux restent plafonnés à 100 %.</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 3 }}>Les cellules en orange sont impossibles (admis &gt; présents, présents &gt; inscrits…). Les taux restent plafonnés à 100 %.</div>
                 </div>
               </div>
             )}
@@ -204,7 +204,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             {session.classes.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '70px 0' }}>
                 <p className="display" style={{ fontSize: 24, margin: 0 }}>Rien à saisir</p>
-                <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Ajoutez d’abord des classes.</p>
+                <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Ajoutez d'abord des classes.</p>
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
             ) : (

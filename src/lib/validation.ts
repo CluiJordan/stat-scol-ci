@@ -1,47 +1,42 @@
 import type { ClassRow, ExamType } from '../types';
 
-/** Erreurs de cohérence par champ d'une ligne (clé = champ, valeur = message). */
-export type FieldErrors = Partial<Record<keyof ClassRow, string>>;
+export interface RowErrors {
+  inscritsGarcon?: string;
+  inscritsFille?: string;
+  presentsTotal?: string;
+  presentsGarcon?: string;
+  presentsFille?: string;
+  admisGarcon?: string;
+  admisFille?: string;
+}
 
-/**
- * Vérifie qu'une ligne respecte les contraintes logiques d'un examen.
- * Ne corrige rien — retourne uniquement les champs fautifs et leur explication.
- * Les calculs (calculations.ts) plafonnent de leur côté ; ici on signale.
- */
-export function validateRow(row: ClassRow, examType: ExamType): FieldErrors {
-  const e: FieldErrors = {};
-  const iG = row.inscritsGarcon || 0;
-  const iF = row.inscritsFille || 0;
-  const inscritsTotal = iG + iF;
-
-  if (iG < 0) e.inscritsGarcon = 'Valeur négative impossible';
-  if (iF < 0) e.inscritsFille = 'Valeur négative impossible';
+export function validateRow(row: ClassRow, examType: ExamType): RowErrors {
+  const errs: RowErrors = {};
+  const inscritsTotal = row.inscritsGarcon + row.inscritsFille;
 
   if (examType === 'BAC') {
-    const pG = row.presentsGarcon || 0;
-    const pF = row.presentsFille || 0;
-    if (pG > iG) e.presentsGarcon = `Présents G (${pG}) > inscrits G (${iG})`;
-    if (pF > iF) e.presentsFille = `Présents F (${pF}) > inscrites F (${iF})`;
-    if ((row.admisGarcon || 0) > pG) e.admisGarcon = `Admis G (${row.admisGarcon}) > présents G (${pG})`;
-    if ((row.admisFille || 0) > pF) e.admisFille = `Admis F (${row.admisFille}) > présentes F (${pF})`;
+    if (row.presentsGarcon > row.inscritsGarcon) errs.presentsGarcon = 'Présents > inscrits garçons';
+    if (row.presentsFille > row.inscritsFille) errs.presentsFille = 'Présents > inscrits filles';
+    if (!errs.presentsGarcon && !errs.presentsFille && row.presentsGarcon + row.presentsFille > inscritsTotal) {
+      errs.presentsGarcon = 'Total présents > inscrits';
+    }
+    if (row.admisGarcon > row.presentsGarcon) errs.admisGarcon = 'Admis > présents garçons';
+    if (row.admisFille > row.presentsFille) errs.admisFille = 'Admis > présents filles';
   } else {
-    const presents = row.presentsTotal || 0;
-    const admisTotal = (row.admisGarcon || 0) + (row.admisFille || 0);
-    if (presents > inscritsTotal) e.presentsTotal = `Présents (${presents}) > inscrits (${inscritsTotal})`;
-    if ((row.admisGarcon || 0) > iG) e.admisGarcon = `Admis G (${row.admisGarcon}) > inscrits G (${iG})`;
-    if ((row.admisFille || 0) > iF) e.admisFille = `Admis F (${row.admisFille}) > inscrites F (${iF})`;
-    if (admisTotal > presents) {
-      const msg = `Total admis (${admisTotal}) > présents (${presents})`;
-      if (!e.admisGarcon) e.admisGarcon = msg;
-      if (!e.admisFille) e.admisFille = msg;
-      if (!e.presentsTotal) e.presentsTotal = msg;
+    if (row.presentsTotal > inscritsTotal) errs.presentsTotal = 'Présents > inscrits';
+    if (row.admisGarcon > row.inscritsGarcon) errs.admisGarcon = 'Admis > inscrits garçons';
+    if (row.admisFille > row.inscritsFille) errs.admisFille = 'Admis > inscrits filles';
+    if (!errs.admisGarcon && !errs.admisFille && row.admisGarcon + row.admisFille > row.presentsTotal) {
+      errs.admisGarcon = 'Total admis > présents';
     }
   }
 
-  return e;
+  return errs;
 }
 
-/** Nombre total de champs fautifs sur l'ensemble des classes d'une session. */
-export function countErrors(rows: ClassRow[], examType: ExamType): number {
-  return rows.reduce((n, r) => n + Object.keys(validateRow(r, examType)).length, 0);
+export function countErrors(classes: ClassRow[], examType: ExamType): number {
+  return classes.reduce((total, cls) => {
+    const errs = validateRow(cls, examType);
+    return total + Object.values(errs).filter(Boolean).length;
+  }, 0);
 }
