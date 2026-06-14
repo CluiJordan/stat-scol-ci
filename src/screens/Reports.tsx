@@ -1,16 +1,11 @@
 import { useState } from 'react';
-import {
-  PieChart, Pie, Cell,
-  Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
 import { computeRow, computeTotals, pct } from '../lib/calculations';
 import { countErrors } from '../lib/validation';
 import { exportBEPCGeneral, exportBEPCParEtablissement, exportBACStatistique } from '../lib/exportPdf';
 import { exportExcel } from '../lib/exportExcel';
-import Button from '../components/ui/Button';
-import Logo from '../components/ui/Logo';
+import { Masthead, Ticker, Donut, BarChart, SectionHead, useToast } from '../components/ui/design';
 
 interface Props {
   sessionId: string;
@@ -19,233 +14,253 @@ interface Props {
 }
 
 type ReportType = 'bepc-general' | 'bepc-etablissement' | 'bac';
-type ColColor = 'g' | 'f' | undefined;
-
-const PIE_COLORS = ['#1C2B3A', '#F4732A', '#2D4155', '#D95F18', '#3D5468', '#B04E12', '#4D6678', '#8C3B0C', '#0F1E2C', '#C05514'];
+type ColKind = 'gar' | 'fil' | undefined;
 
 export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const session = getSession(sessionId)!;
-  const [activeReport, setActiveReport] = useState<ReportType>(
-    session.examType === 'BAC' ? 'bac' : 'bepc-general'
-  );
+  const [report, setReport] = useState<ReportType>(session.examType === 'BAC' ? 'bac' : 'bepc-general');
+  const [toast, showToast] = useToast();
 
   const isBac = session.examType === 'BAC';
   const computed = session.classes.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
   const errors = countErrors(session.classes, session.examType);
+  const good = totals.tauxTotal >= 0.5;
 
-  const truncate = (s: string) => s.length > 14 ? s.slice(0, 13) + '…' : s;
-
-  const admisData = computed
+  const barRows = computed
     .filter((r) => r.admisTotal > 0)
-    .map((r) => ({ name: truncate(r.name), value: r.admisTotal }));
+    .sort((a, b) => b.admisTotal - a.admisTotal)
+    .map((r, i) => ({ label: r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name, value: r.admisTotal, color: i === 0 ? 'var(--orange)' : 'var(--ink)' }));
 
-  const genderData = [
-    { name: 'Garçons', value: totals.admisGarcon },
-    { name: 'Filles', value: totals.admisFille },
-  ].filter((d) => d.value > 0);
-
-  function handleExportPdf() {
-    if (activeReport === 'bepc-general') exportBEPCGeneral(session);
-    else if (activeReport === 'bepc-etablissement') exportBEPCParEtablissement(session);
+  function handlePdf() {
+    if (report === 'bepc-general') exportBEPCGeneral(session);
+    else if (report === 'bepc-etablissement') exportBEPCParEtablissement(session);
     else exportBACStatistique(session);
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <header className="bg-[#0A0A0A] px-4 sm:px-6 py-3 sm:py-4">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition-colors shrink-0 mt-0.5" aria-label="Retour">
-              ←<span className="hidden sm:inline"> Retour</span>
-            </button>
-            <Logo size={28} className="mt-0.5 shrink-0 text-white" />
-            <div className="min-w-0 text-white">
-              <h1 className="font-bold text-sm leading-tight">{session.etablissement}</h1>
-              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}{session.examSession ? ` — ${session.examSession}` : ''}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Button size="sm" variant="secondary" onClick={onEdit} className="flex-1 sm:flex-none justify-center">Modifier</Button>
-            <Button size="sm" variant="secondary" onClick={() => exportExcel(session)} className="flex-1 sm:flex-none justify-center">Excel</Button>
-            <Button size="sm" variant="accent" onClick={handleExportPdf} className="flex-1 sm:flex-none justify-center">Export PDF</Button>
-          </div>
-        </div>
-      </header>
+    <div className="screen-enter" style={{ minHeight: '100vh' }}>
+      <Masthead back={onBack}
+        title={session.etablissement}
+        sub={`${session.examType} · ${session.anneeScolaire}${session.examSession ? ' · ' + session.examSession : ''}`}
+        right={
+          <>
+            <button className="btn btn--sm" onClick={onEdit}>Modifier</button>
+            <button className="btn btn--sm" onClick={() => { exportExcel(session); showToast('Export Excel en cours…'); }}>Excel</button>
+            <button className="btn btn--sm btn--accent" onClick={handlePdf}>Export PDF ↓</button>
+          </>
+        }
+      />
 
-      {!isBac && (
-        <div className="bg-[#F5F0EB] border-b border-[#E5DDD5] px-4 sm:px-6">
-          <div className="max-w-6xl mx-auto flex items-center gap-1 py-2 overflow-x-auto">
-            {([
-              ['bepc-general', 'Statistique générale'],
-              ['bepc-etablissement', 'Statistique par établissement'],
-            ] as [ReportType, string][]).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setActiveReport(key)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
-                  activeReport === key ? 'bg-[#1C2B3A] text-white' : 'text-gray-500 hover:text-[#1C2B3A] hover:bg-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5">
+      <div className="shell" style={{ paddingTop: 40, paddingBottom: 90 }}>
         {errors > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-start gap-3">
-            <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
-            <p className="text-sm text-red-700">
-              <span className="font-semibold">{errors} incohérence{errors > 1 ? 's' : ''} de saisie détectée{errors > 1 ? 's' : ''}.</span>{' '}
-              Les taux sont plafonnés à 100%, mais corrigez les données via « Modifier » avant d'exporter le document officiel.
-            </p>
+          <div style={{ display: 'flex', gap: 12, padding: '13px 16px', border: '1px solid var(--orange-d)', background: 'var(--orange-w)', borderRadius: 4, marginBottom: 30 }}>
+            <span style={{ color: 'var(--orange-d)', fontSize: 17 }}>▲</span>
+            <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+              <strong style={{ color: 'var(--orange-d)' }}>{errors} incohérence{errors > 1 ? 's' : ''} de saisie.</strong> Les taux sont plafonnés à 100 %. Corrigez via « Modifier » avant l’export officiel.
+            </div>
           </div>
         )}
 
-        <div className="bg-white border border-[#E5DDD5] rounded-lg overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-[#E5DDD5]">
-            <div className="flex flex-col sm:flex-row sm:justify-between gap-3 text-xs text-gray-600 mb-2">
-              <div className="min-w-0">
-                <p className="font-medium">{session.ministere}</p>
-                <div className="border-b border-gray-300 my-1 w-40 sm:w-48" />
-                <p>{session.drena}</p>
-                <div className="border-b border-gray-300 my-1 w-40 sm:w-48" />
-                <p>{session.etablissement}</p>
-                {session.code && <p>{session.code}</p>}
-              </div>
-              <div className="sm:text-right shrink-0">
-                <p className="font-medium">ANNEE SCOLAIRE</p>
-                <p>{session.anneeScolaire}</p>
-                {session.examSession && (
-                  <>
-                    <p className="font-medium mt-1">SESSION</p>
-                    <p>{session.examSession}</p>
-                  </>
-                )}
-              </div>
+        {/* HERO */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,0.9fr)', gap: 'clamp(24px, 5vw, 70px)', alignItems: 'end' }} className="report-hero">
+          <div>
+            <div className="eyebrow rise">{isBac ? 'Baccalauréat' : 'BEPC'} · {session.examSession}</div>
+            <div className="rise" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6, animationDelay: 'calc(.05s * var(--speed))' }}>
+              <span className="display tnum" style={{ fontSize: 'clamp(96px, 19vw, 220px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', lineHeight: 0.9 }}>
+                <Ticker value={totals.tauxTotal * 100} decimals={1} duration={1300} />
+              </span>
+              <span className="display" style={{ fontSize: 'clamp(34px, 6vw, 64px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', marginTop: 6 }}>%</span>
             </div>
-            {activeReport === 'bepc-general' && <h2 className="text-lg sm:text-xl font-bold text-center mt-4">Statistique générale</h2>}
-            {activeReport === 'bepc-etablissement' && <h2 className="text-lg sm:text-xl font-bold text-center mt-4">Statistique par établissement</h2>}
-            {activeReport === 'bac' && (
-              <div className="text-center mt-4">
-                <h2 className="text-base sm:text-lg font-bold uppercase">{`STATISTIQUE ${session.etablissement.toUpperCase()}`}</h2>
-                <div className="inline-block bg-[#1C2B3A] text-white rounded-lg px-4 py-1.5 mt-2">
-                  <span className="font-semibold text-sm">Baccalauréat {session.examSession}</span>
-                </div>
+            <div className="eyebrow rise" style={{ marginTop: 26, animationDelay: 'calc(.1s * var(--speed))' }}>
+              taux d’admission global · {totals.admisTotal} admis sur {totals.presentsTotal} présents
+            </div>
+          </div>
+          <div className="rise" style={{ animationDelay: 'calc(.15s * var(--speed))', borderLeft: '1px solid var(--line)', paddingLeft: 'clamp(20px, 4vw, 44px)' }}>
+            <GenderFig color="var(--green-d)" dot="var(--gar)" label="Garçons" value={totals.tauxGarcon} sub={`${totals.admisGarcon} admis`} />
+            <hr className="rule" style={{ margin: '18px 0' }} />
+            <GenderFig color="var(--orange-d)" dot="var(--fil)" label="Filles" value={totals.tauxFille} sub={`${totals.admisFille} admises`} />
+          </div>
+        </section>
+
+        <hr className="rule-ink" style={{ marginTop: 40 }} />
+
+        {/* STAT STRIP */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--line)' }} className="stat-strip">
+          <StatFig label="Inscrits" value={totals.inscritsTotal} />
+          <StatFig label="Présents" value={totals.presentsTotal} />
+          <StatFig label="Absents" value={totals.absents} />
+          <StatFig label="Admis" value={totals.admisTotal} accent />
+        </section>
+
+        {/* CHARTS */}
+        {computed.length > 0 && (
+          <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'clamp(24px, 5vw, 56px)', marginTop: 44 }} className="charts">
+            <div>
+              <h3 className="eyebrow" style={{ marginBottom: 18 }}>Admis · garçons / filles</h3>
+              <Donut a={totals.admisGarcon} b={totals.admisFille} labelA="Garçons" labelB="Filles" />
+            </div>
+            <div>
+              <h3 className="eyebrow" style={{ marginBottom: 18 }}>Admis par classe</h3>
+              {barRows.length > 0
+                ? <BarChart rows={barRows} />
+                : <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun admis enregistré.</p>}
+            </div>
+          </section>
+        )}
+
+        {/* OFFICIAL TABLE */}
+        <section style={{ marginTop: 56 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+            <SectionHead n="✶" title="Le relevé officiel" desc="Tableau prêt à l’export, fidèle au format administratif." />
+            {!isBac && (
+              <div style={{ display: 'flex', gap: 0, border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden' }}>
+                {([['bepc-general', 'Générale'], ['bepc-etablissement', 'Par établissement']] as [ReportType, string][]).map(([k, l]) => (
+                  <button key={k} onClick={() => setReport(k)} className="mono"
+                    style={{ padding: '9px 14px', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: report === k ? 'var(--ink)' : 'transparent', color: report === k ? 'var(--paper)' : 'var(--ink-2)' }}>
+                    {l}
+                  </button>
+                ))}
               </div>
             )}
           </div>
-          <div className="overflow-x-auto p-3 sm:p-4">
-            {activeReport === 'bepc-general' && <BEPCGeneralTable rows={computed} totals={totals} />}
-            {activeReport === 'bepc-etablissement' && <BEPCParEtablissementTable session={session} computed={computed} />}
-            {activeReport === 'bac' && <BACTable rows={computed} totals={totals} />}
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
-          <StatCard label="Inscrits" value={totals.inscritsTotal} />
-          <StatCard label="Présents" value={totals.presentsTotal} />
-          <StatCard label="Admis" value={totals.admisTotal} />
-          <StatCard label="Taux global" value={pct(totals.tauxTotal)} highlight={totals.tauxTotal >= 0.5 ? 'success' : 'warn'} />
-          <StatCard label="Taux garçons" value={pct(totals.tauxGarcon)} />
-          <StatCard label="Taux filles" value={pct(totals.tauxFille)} />
-        </div>
-
-        {computed.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white border border-[#E5DDD5] rounded-lg p-4 sm:p-5">
-              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Répartition des admis par classe</h3>
-              <p className="text-xs text-gray-400 mb-2">Nombre d'admis par classe</p>
-              {admisData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={admisData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
-                      {admisData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => [v, 'Admis']} contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }} />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-center text-gray-400 text-sm py-16">Aucun admis enregistré</p>
-              )}
-            </div>
-            <div className="bg-white border border-[#E5DDD5] rounded-lg p-4 sm:p-5">
-              <h3 className="font-bold text-[#0A0A0A] text-sm mb-1">Garçons vs Filles</h3>
-              <p className="text-xs text-gray-400 mb-2">Parmi les admis</p>
-              {genderData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={genderData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={3} dataKey="value">
-                      <Cell fill="#1C2B3A" />
-                      <Cell fill="#F4732A" />
-                    </Pie>
-                    <Tooltip formatter={(v: number) => [v, 'Admis']} contentStyle={{ borderRadius: '8px', border: '1px solid #E5DDD5', fontSize: '12px' }} />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-center text-gray-400 text-sm py-16">Aucune donnée</p>
-              )}
-            </div>
+          <BulletinHeader session={session} />
+          <div className="scroll-x" style={{ border: '1px solid var(--line)', borderTop: 'none' }}>
+            {report === 'bepc-general' && <BEPCTable rows={computed} totals={totals} />}
+            {report === 'bepc-etablissement' && <BEPCParEtabTable session={session} computed={computed} />}
+            {report === 'bac' && <BACTable rows={computed} totals={totals} />}
           </div>
-        )}
-      </main>
+        </section>
+      </div>
+
+      {toast}
     </div>
   );
 }
 
-function StatCard({ label, value, highlight }: { label: string; value: string | number; highlight?: 'success' | 'warn' }) {
-  const style = highlight === 'success' ? 'bg-emerald-50 border-emerald-200' : highlight === 'warn' ? 'bg-orange-50 border-orange-200' : 'bg-white border-[#E5DDD5]';
-  const valueStyle = highlight === 'success' ? 'text-emerald-700' : highlight === 'warn' ? 'text-[#F4732A]' : 'text-[#0A0A0A]';
+function GenderFig({ color, dot, label, value, sub }: { color: string; dot: string; label: string; value: number; sub: string }) {
   return (
-    <div className={`rounded-lg px-4 sm:px-5 py-4 text-center sm:min-w-[120px] border ${style}`}>
-      <p className={`text-xl sm:text-2xl font-bold ${valueStyle}`}>{value}</p>
-      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mt-1">{label}</p>
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <span style={{ width: 11, height: 11, background: dot, borderRadius: 2, display: 'inline-block' }} />
+        <span className="mono" style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-2)' }}>{label}</span>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <span className="display tnum" style={{ fontSize: 'clamp(28px, 5vw, 42px)', color }}>
+          <Ticker value={value * 100} decimals={1} duration={1300} />%
+        </span>
+        <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 2 }}>{sub}</div>
+      </div>
     </div>
   );
 }
 
-function BEPCGeneralTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
+function StatFig({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <table className="w-full text-xs border-collapse">
+    <div style={{ padding: '24px 18px 24px 0', borderRight: '1px solid var(--line)' }}>
+      <div className="display tnum" style={{ fontSize: 'clamp(30px, 5vw, 48px)', color: accent ? 'var(--orange-d)' : 'var(--ink)' }}>
+        <Ticker value={value} duration={1100} />
+      </div>
+      <div className="eyebrow" style={{ marginTop: 5 }}>{label}</div>
+    </div>
+  );
+}
+
+function BulletinHeader({ session }: { session: Session }) {
+  return (
+    <div style={{ border: '1px solid var(--line)', borderBottom: 'none', background: 'var(--card)', padding: '18px 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+        <div className="mono" style={{ fontSize: 10.5, lineHeight: 1.7, color: 'var(--ink-2)', maxWidth: 360 }}>
+          <div>{session.ministere}</div>
+          <div style={{ marginTop: 6 }}>{session.drena}</div>
+          <div style={{ color: 'var(--ink)', fontWeight: 700 }}>{session.etablissement}{session.code ? ` · ${session.code}` : ''}</div>
+        </div>
+        <div className="mono" style={{ fontSize: 10.5, lineHeight: 1.7, color: 'var(--ink-2)', textAlign: 'right' }}>
+          <div>ANNÉE SCOLAIRE</div>
+          <div style={{ color: 'var(--ink)' }}>{session.anneeScolaire}</div>
+          {session.examSession && <div style={{ marginTop: 4 }}>{session.examSession}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Th({ children, c }: { children: React.ReactNode; c?: ColKind }) {
+  const color = c === 'gar' ? 'var(--green-w)' : c === 'fil' ? 'var(--orange-w)' : '#fff';
+  return (
+    <th style={{ background: 'var(--ink)', color, padding: '9px 8px', fontFamily: 'var(--mono)', fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 400, borderRight: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap', textAlign: 'center' }}>
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, left, c, total }: { children: React.ReactNode; left?: boolean; c?: ColKind; total?: boolean }) {
+  const bg = c === 'gar'
+    ? (total ? 'var(--green-w)' : 'rgba(127,180,120,0.07)')
+    : c === 'fil'
+    ? (total ? 'var(--orange-w)' : 'rgba(226,105,31,0.06)')
+    : total ? 'var(--paper-3)' : 'transparent';
+  return (
+    <td style={{ padding: '8px 9px', textAlign: left ? 'left' : 'center', background: bg, borderRight: '1px solid var(--line)', borderBottom: '1px solid var(--line)', fontFamily: left ? 'var(--display)' : 'var(--mono)', fontWeight: left || total ? 700 : 400, fontSize: left ? 12.5 : 11.5, whiteSpace: 'nowrap', color: 'var(--ink)' }}>
+      {children}
+    </td>
+  );
+}
+
+function BEPCTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
+  return (
+    <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
       <thead><tr>
-        <Th>Classe</Th>
-        <Th>Candidats inscrits</Th>
-        <Th>Candidats Présents</Th>
-        <Th>Admis</Th>
-        <Th>Taux d'admission</Th>
-        <Th color="g">Inscrits Garçon</Th>
-        <Th color="g">Admis Garçon</Th>
-        <Th color="g">Taux d'admission Garçon</Th>
-        <Th color="f">Inscrits Fille</Th>
-        <Th color="f">Admis Fille</Th>
-        <Th color="f">Taux d'admission Fille</Th>
+        <Th>Classe</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Admis</Th><Th>Taux</Th>
+        <Th c="gar">Inscr. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
+        <Th c="fil">Inscr. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
       </tr></thead>
       <tbody>
-        {rows.map((r, i) => (
-          <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-            <Td left>{r.name}</Td>
-            <Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-            <Td color="g">{r.inscritsGarcon}</Td><Td color="g">{r.admisGarcon}</Td><Td color="g">{pct(r.tauxGarcon)}</Td>
-            <Td color="f">{r.inscritsFille}</Td><Td color="f">{r.admisFille}</Td><Td color="f">{pct(r.tauxFille)}</Td>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
+            <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
+            <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
           </tr>
         ))}
-        <tr className="font-bold">
-          <Td left total>TOTAL</Td>
-          <Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
-          <Td color="g" total>{totals.inscritsGarcon}</Td><Td color="g" total>{totals.admisGarcon}</Td><Td color="g" total>{pct(totals.tauxGarcon)}</Td>
-          <Td color="f" total>{totals.inscritsFille}</Td><Td color="f" total>{totals.admisFille}</Td><Td color="f" total>{pct(totals.tauxFille)}</Td>
+        <tr>
+          <Td left total>TOTAL</Td><Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
+          <Td c="gar" total>{totals.inscritsGarcon}</Td><Td c="gar" total>{totals.admisGarcon}</Td><Td c="gar" total>{pct(totals.tauxGarcon)}</Td>
+          <Td c="fil" total>{totals.inscritsFille}</Td><Td c="fil" total>{totals.admisFille}</Td><Td c="fil" total>{pct(totals.tauxFille)}</Td>
         </tr>
       </tbody>
     </table>
   );
 }
 
-function BEPCParEtablissementTable({ session, computed }: { session: Session; computed: ReturnType<typeof computeRow>[] }) {
+function BACTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
+  return (
+    <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 1000 }}>
+      <thead><tr>
+        <Th>Classe</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Absents</Th><Th>Admis</Th><Th>Taux</Th>
+        <Th c="gar">Inscr. G</Th><Th c="gar">Prés. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
+        <Th c="fil">Inscr. F</Th><Th c="fil">Prés. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
+      </tr></thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.absents}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
+            <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.presentsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
+            <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.presentsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
+          </tr>
+        ))}
+        <tr>
+          <Td left total>TOTAL</Td><Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.absents}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
+          <Td c="gar" total>{totals.inscritsGarcon}</Td><Td c="gar" total>{totals.presentsGarcon}</Td><Td c="gar" total>{totals.admisGarcon}</Td><Td c="gar" total>{pct(totals.tauxGarcon)}</Td>
+          <Td c="fil" total>{totals.inscritsFille}</Td><Td c="fil" total>{totals.presentsFille}</Td><Td c="fil" total>{totals.admisFille}</Td><Td c="fil" total>{pct(totals.tauxFille)}</Td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function BEPCParEtabTable({ session, computed }: { session: Session; computed: ReturnType<typeof computeRow>[] }) {
   const groups: { centre: Centre | null; rows: typeof computed }[] = [];
   session.centres.forEach((centre) => {
     const rows = computed.filter((r) => r.centreId === centre.id);
@@ -254,81 +269,45 @@ function BEPCParEtablissementTable({ session, computed }: { session: Session; co
   const unassigned = computed.filter((r) => !r.centreId || !session.centres.find((c) => c.id === r.centreId));
   if (unassigned.length > 0) groups.push({ centre: null, rows: unassigned });
   const allTotals = computeTotals(computed, 'BEPC');
+
   return (
-    <div className="flex flex-col gap-4">
+    <div>
       {groups.map(({ centre, rows }, gi) => {
-        const groupTotals = computeTotals(rows, 'BEPC');
+        const gt = computeTotals(rows, 'BEPC');
         return (
           <div key={gi}>
-            <div className="bg-[#1C2B3A] text-white px-3 py-2 font-bold text-sm rounded-t tracking-wide">{centre ? centre.name : 'AUTRE'}</div>
-            <table className="w-full text-xs border-collapse border border-gray-300">
+            <div className="mono" style={{ background: 'var(--paper-3)', padding: '8px 12px', fontSize: 11, letterSpacing: '0.1em', fontWeight: 700, borderBottom: '1px solid var(--line)' }}>{centre ? centre.name : 'AUTRES'}</div>
+            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
               <thead><tr>
-                <Th>Classe</Th><Th>Cand. inscrits</Th><Th>Cand. Présents</Th><Th>Admis</Th><Th>Taux</Th>
-                <Th color="g">Inscrits G</Th><Th color="g">Admis G</Th><Th color="g">Taux G</Th>
-                <Th color="f">Inscrits F</Th><Th color="f">Admis F</Th><Th color="f">Taux F</Th>
+                <Th>Classe</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Admis</Th><Th>Taux</Th>
+                <Th c="gar">Inscr. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
+                <Th c="fil">Inscr. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
               </tr></thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                {rows.map((r) => (
+                  <tr key={r.id}>
                     <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-                    <Td color="g">{r.inscritsGarcon}</Td><Td color="g">{r.admisGarcon}</Td><Td color="g">{pct(r.tauxGarcon)}</Td>
-                    <Td color="f">{r.inscritsFille}</Td><Td color="f">{r.admisFille}</Td><Td color="f">{pct(r.tauxFille)}</Td>
+                    <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
+                    <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
                   </tr>
                 ))}
-                <tr className="font-bold">
-                  <Td left total>TOTAL</Td><Td total>{groupTotals.inscritsTotal}</Td><Td total>{groupTotals.presentsTotal}</Td><Td total>{groupTotals.admisTotal}</Td><Td total>{pct(groupTotals.tauxTotal)}</Td>
-                  <Td color="g" total>{groupTotals.inscritsGarcon}</Td><Td color="g" total>{groupTotals.admisGarcon}</Td><Td color="g" total>{pct(groupTotals.tauxGarcon)}</Td>
-                  <Td color="f" total>{groupTotals.inscritsFille}</Td><Td color="f" total>{groupTotals.admisFille}</Td><Td color="f" total>{pct(groupTotals.tauxFille)}</Td>
+                <tr>
+                  <Td left total>TOTAL</Td><Td total>{gt.inscritsTotal}</Td><Td total>{gt.presentsTotal}</Td><Td total>{gt.admisTotal}</Td><Td total>{pct(gt.tauxTotal)}</Td>
+                  <Td c="gar" total>{gt.inscritsGarcon}</Td><Td c="gar" total>{gt.admisGarcon}</Td><Td c="gar" total>{pct(gt.tauxGarcon)}</Td>
+                  <Td c="fil" total>{gt.inscritsFille}</Td><Td c="fil" total>{gt.admisFille}</Td><Td c="fil" total>{pct(gt.tauxFille)}</Td>
                 </tr>
               </tbody>
             </table>
           </div>
         );
       })}
-      <table className="w-full text-xs border-collapse"><tbody>
-        <tr className="font-bold text-sm">
+      <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860, borderTop: '2px solid var(--ink)' }}>
+        <tbody><tr>
           <Td left total>TOTAL GÉNÉRAL</Td><Td total>{allTotals.inscritsTotal}</Td><Td total>{allTotals.presentsTotal}</Td><Td total>{allTotals.admisTotal}</Td><Td total>{pct(allTotals.tauxTotal)}</Td>
-          <Td color="g" total>{allTotals.inscritsGarcon}</Td><Td color="g" total>{allTotals.admisGarcon}</Td><Td color="g" total>{pct(allTotals.tauxGarcon)}</Td>
-          <Td color="f" total>{allTotals.inscritsFille}</Td><Td color="f" total>{allTotals.admisFille}</Td><Td color="f" total>{pct(allTotals.tauxFille)}</Td>
-        </tr>
-      </tbody></table>
+          <Td c="gar" total>{allTotals.inscritsGarcon}</Td><Td c="gar" total>{allTotals.admisGarcon}</Td><Td c="gar" total>{pct(allTotals.tauxGarcon)}</Td>
+          <Td c="fil" total>{allTotals.inscritsFille}</Td><Td c="fil" total>{allTotals.admisFille}</Td><Td c="fil" total>{pct(allTotals.tauxFille)}</Td>
+        </tr></tbody>
+      </table>
     </div>
   );
-}
-
-function BACTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
-  return (
-    <table className="w-full text-xs border-collapse">
-      <thead><tr>
-        <Th>Classe & Série</Th><Th>Cand. inscrits</Th><Th>Cand. Présents</Th><Th>Cand. absents</Th><Th>Admis</Th><Th>Taux d'admission</Th>
-        <Th color="g">Inscrits (G)</Th><Th color="g">Présents (G)</Th><Th color="g">Admis (G)</Th><Th color="g">Taux (G)</Th>
-        <Th color="f">Inscrits (F)</Th><Th color="f">Présents (F)</Th><Th color="f">Admis (F)</Th><Th color="f">Taux (F)</Th>
-      </tr></thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-            <Td left>{r.name}</Td>
-            <Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.absents}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-            <Td color="g">{r.inscritsGarcon}</Td><Td color="g">{r.presentsGarcon}</Td><Td color="g">{r.admisGarcon}</Td><Td color="g">{pct(r.tauxGarcon)}</Td>
-            <Td color="f">{r.inscritsFille}</Td><Td color="f">{r.presentsFille}</Td><Td color="f">{r.admisFille}</Td><Td color="f">{pct(r.tauxFille)}</Td>
-          </tr>
-        ))}
-        <tr className="font-bold">
-          <Td left total>TOTAL</Td>
-          <Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.absents}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
-          <Td color="g" total>{totals.inscritsGarcon}</Td><Td color="g" total>{totals.presentsGarcon}</Td><Td color="g" total>{totals.admisGarcon}</Td><Td color="g" total>{pct(totals.tauxGarcon)}</Td>
-          <Td color="f" total>{totals.inscritsFille}</Td><Td color="f" total>{totals.presentsFille}</Td><Td color="f" total>{totals.admisFille}</Td><Td color="f" total>{pct(totals.tauxFille)}</Td>
-        </tr>
-      </tbody>
-    </table>
-  );
-}
-
-function Th({ children, color }: { children: React.ReactNode; color?: ColColor }) {
-  const bg = color === 'g' ? 'bg-blue-100 text-blue-900' : color === 'f' ? 'bg-pink-100 text-pink-900' : 'bg-gray-100 text-gray-700';
-  return <th className={`border border-gray-300 px-2 py-1.5 font-semibold text-center ${bg}`}>{children}</th>;
-}
-function Td({ children, left, color, total }: { children: React.ReactNode; left?: boolean; color?: ColColor; total?: boolean }) {
-  const bg = color === 'g' ? (total ? 'bg-blue-100' : 'bg-blue-50') : color === 'f' ? (total ? 'bg-pink-100' : 'bg-pink-50') : total ? 'bg-gray-200' : '';
-  return <td className={`border border-gray-200 px-2 py-1.5 ${left ? 'text-left font-medium' : 'text-center'} ${bg}`}>{children}</td>;
 }

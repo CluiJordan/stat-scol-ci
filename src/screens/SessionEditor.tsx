@@ -4,13 +4,9 @@ import type { Session, ClassRow, Centre } from '../types';
 import { saveSession, getSession } from '../lib/storage';
 import { importFromFile } from '../lib/importFile';
 import { downloadTemplate } from '../lib/exportExcel';
-import { computeRow, pct } from '../lib/calculations';
+import { computeRow, computeTotals, pct } from '../lib/calculations';
 import { validateRow, countErrors } from '../lib/validation';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
-import Modal from '../components/ui/Modal';
-import Logo from '../components/ui/Logo';
+import { Masthead, Modal, Field, TextInput, SelectInput, SectionHead, Placeholder } from '../components/ui/design';
 
 interface Props {
   sessionId: string;
@@ -20,11 +16,11 @@ interface Props {
 
 type Tab = 'config' | 'classes' | 'saisie';
 
-function emptyRow(centreId: string | null = null): ClassRow {
-  return { id: uuid(), name: '', centreId, inscritsGarcon: 0, inscritsFille: 0, presentsTotal: 0, presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0 };
+function emptyRow(): ClassRow {
+  return { id: uuid(), name: '', centreId: null, inscritsGarcon: 0, inscritsFille: 0, presentsTotal: 0, presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0 };
 }
 
-function getSchoolYearOptions(currentValue: string): { value: string; label: string }[] {
+function schoolYearOptions(current: string): string[] {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -33,8 +29,8 @@ function getSchoolYearOptions(currentValue: string): { value: string; label: str
     const start = currentStart - (5 - i);
     return `${start} - ${start + 1}`;
   });
-  if (!years.includes(currentValue)) years.unshift(currentValue);
-  return years.map((y) => ({ value: y, label: y }));
+  if (!years.includes(current)) years.unshift(current);
+  return years;
 }
 
 export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
@@ -43,179 +39,144 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [saved, setSaved] = useState(false);
+  const savedTimer = useState<ReturnType<typeof setTimeout>>(0 as unknown as ReturnType<typeof setTimeout>)[0];
 
   const persist = useCallback((s: Session) => {
     setSession(s);
     saveSession(s);
     setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  }, []);
+    clearTimeout(savedTimer);
+    setTimeout(() => setSaved(false), 1400);
+  }, [savedTimer]);
 
-  function setField(key: keyof Session, value: string) {
-    persist({ ...session, [key]: value });
-  }
-
-  function addCentre() {
-    const centre: Centre = { id: uuid(), name: `CENTRE ${session.centres.length + 1}` };
-    persist({ ...session, centres: [...session.centres, centre] });
-  }
-
-  function updateCentre(id: string, name: string) {
-    persist({ ...session, centres: session.centres.map((c) => c.id === id ? { ...c, name } : c) });
-  }
-
-  function deleteCentre(id: string) {
-    persist({
-      ...session,
-      centres: session.centres.filter((c) => c.id !== id),
-      classes: session.classes.map((c) => c.centreId === id ? { ...c, centreId: null } : c),
-    });
-  }
-
-  function addClass() {
-    persist({ ...session, classes: [...session.classes, emptyRow()] });
-  }
-
-  function updateClass(id: string, field: keyof ClassRow, value: string | number | null) {
-    persist({ ...session, classes: session.classes.map((c) => c.id === id ? { ...c, [field]: value } : c) });
-  }
-
-  function deleteClass(id: string) {
-    persist({ ...session, classes: session.classes.filter((c) => c.id !== id) });
-  }
+  const setField = (k: keyof Session, v: string) => persist({ ...session, [k]: v });
+  const addCentre = () => { const c: Centre = { id: uuid(), name: `CENTRE ${session.centres.length + 1}` }; persist({ ...session, centres: [...session.centres, c] }); };
+  const updateCentre = (id: string, name: string) => persist({ ...session, centres: session.centres.map((c) => c.id === id ? { ...c, name } : c) });
+  const deleteCentre = (id: string) => persist({ ...session, centres: session.centres.filter((c) => c.id !== id), classes: session.classes.map((c) => c.centreId === id ? { ...c, centreId: null } : c) });
+  const addClass = () => persist({ ...session, classes: [...session.classes, emptyRow()] });
+  const updateClass = (id: string, field: keyof ClassRow, value: string | number | null) => persist({ ...session, classes: session.classes.map((c) => c.id === id ? { ...c, [field]: value } : c) });
+  const deleteClass = (id: string) => persist({ ...session, classes: session.classes.filter((c) => c.id !== id) });
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const { rows, errors } = await importFromFile(file, session.examType);
     setImportErrors(errors);
-    if (rows.length > 0) {
-      persist({ ...session, classes: [...session.classes, ...rows] });
-      setShowImport(false);
-    }
+    if (rows.length > 0) { persist({ ...session, classes: [...session.classes, ...rows] }); setShowImport(false); }
   }
-
-  const centreOptions = [
-    { value: '', label: '— Aucun centre —' },
-    ...session.centres.map((c) => ({ value: c.id, label: c.name })),
-  ];
 
   const isBac = session.examType === 'BAC';
   const totalErrors = countErrors(session.classes, session.examType);
+  const centreOptions = [{ value: '', label: '— Aucun centre —' }, ...session.centres.map((c) => ({ value: c.id, label: c.name }))];
 
-  const tabLabels: Record<Tab, string> = {
-    config: '① Configuration',
-    classes: isBac ? '② Classes' : '② Classes & Centres',
-    saisie: '③ Saisie',
-  };
+  const steps = [
+    { id: 'config' as Tab, n: '01', label: 'Configuration' },
+    { id: 'classes' as Tab, n: '02', label: isBac ? 'Classes' : 'Classes & centres' },
+    { id: 'saisie' as Tab, n: '03', label: 'Saisie', badge: totalErrors },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <header className="bg-[#0A0A0A] px-4 sm:px-6 py-3 sm:py-4">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            <button onClick={onBack} className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition-colors shrink-0 mt-0.5" aria-label="Retour">
-              ←<span className="hidden sm:inline"> Retour</span>
-            </button>
-            <Logo size={28} className="mt-0.5 shrink-0 text-white" />
-            <div className="min-w-0 text-white">
-              <h1 className="font-bold text-sm leading-tight">{session.etablissement || 'Session sans nom'}</h1>
-              <p className="text-white/40 text-xs mt-0.5">{session.examType} — {session.anneeScolaire}{session.examSession ? ` — ${session.examSession}` : ''}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {saved && <span className="text-emerald-400 text-xs font-medium">Enregistré ✓</span>}
-            <Button size="sm" variant="accent" onClick={onReports} className="flex-1 sm:flex-none justify-center">Voir les rapports</Button>
-          </div>
-        </div>
-      </header>
+    <div className="screen-enter" style={{ minHeight: '100vh' }}>
+      <Masthead
+        back={onBack}
+        title={session.etablissement || 'Session sans nom'}
+        sub={`${session.examType} · ${session.anneeScolaire}${session.examSession ? ' · ' + session.examSession : ''}`}
+        right={
+          <>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--green-d)', opacity: saved ? 1 : 0, transition: 'opacity .3s', minWidth: 78, textAlign: 'right' }}>
+              {saved ? '✓ enregistré' : ''}
+            </span>
+            <button className="btn btn--accent btn--sm" onClick={onReports}>Voir les rapports →</button>
+          </>
+        }
+      />
 
-      <div className="bg-[#F5F0EB] border-b border-[#E5DDD5] px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto flex items-center gap-1 py-2 overflow-x-auto">
-          {(['config', 'classes', 'saisie'] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
-                tab === t ? 'bg-[#1C2B3A] text-white' : 'text-gray-500 hover:text-[#1C2B3A] hover:bg-white'
-              }`}
-            >
-              {tabLabels[t]}
-              {t === 'saisie' && totalErrors > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold align-middle">{totalErrors}</span>
-              )}
-            </button>
-          ))}
+      {/* Stepper */}
+      <div style={{ borderBottom: '1px solid var(--line)', background: 'var(--paper)', position: 'sticky', top: 64, zIndex: 90 }}>
+        <div className="shell scroll-x" style={{ display: 'flex', gap: 0 }}>
+          {steps.map((st) => {
+            const active = tab === st.id;
+            return (
+              <button key={st.id} onClick={() => setTab(st.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '16px 22px 14px',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  borderBottom: '2px solid ' + (active ? 'var(--ink)' : 'transparent'),
+                  marginBottom: -1, whiteSpace: 'nowrap',
+                }}>
+                <span className="display tnum" style={{ fontSize: 20, color: active ? 'var(--ink)' : 'var(--ink-3)' }}>{st.n}</span>
+                <span className="mono" style={{ fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: active ? 'var(--ink)' : 'var(--ink-3)' }}>{st.label}</span>
+                {(st.badge ?? 0) > 0 && (
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, color: '#fff', background: 'var(--orange-d)', borderRadius: 20, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                    {st.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+      <div className="shell" style={{ paddingTop: 30, paddingBottom: 90 }}>
         {tab === 'config' && (
-          <div className="bg-white rounded-xl border border-[#E5DDD5] p-5 sm:p-6 max-w-2xl">
-            <h2 className="font-bold text-[#0A0A0A] mb-5">Informations générales</h2>
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Type d'examen" value={session.examType} disabled />
-                <Select
-                  label="Année scolaire"
-                  options={getSchoolYearOptions(session.anneeScolaire)}
-                  value={session.anneeScolaire}
-                  onChange={(e) => setField('anneeScolaire', e.target.value)}
-                />
+          <div className="rise" style={{ maxWidth: 680 }}>
+            <SectionHead n="01" title="Informations générales" desc="Identité officielle du relevé, reprise sur les exports PDF et Excel." />
+            <div style={{ display: 'grid', gap: 22, marginTop: 28 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 22 }}>
+                <Field label="Type d’examen"><TextInput value={session.examType} disabled /></Field>
+                <Field label="Année scolaire"><SelectInput value={session.anneeScolaire} options={schoolYearOptions(session.anneeScolaire)} onChange={(v) => setField('anneeScolaire', v)} /></Field>
               </div>
-              <Input label="Établissement" value={session.etablissement} onChange={(e) => setField('etablissement', e.target.value)} uppercase />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Code établissement" value={session.code} onChange={(e) => setField('code', e.target.value)} uppercase />
-                <Input label="DRENA" value={session.drena} onChange={(e) => setField('drena', e.target.value)} uppercase />
+              <Field label="Établissement"><TextInput value={session.etablissement} upper onChange={(v) => setField('etablissement', v)} /></Field>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 22 }}>
+                <Field label="Code établissement"><TextInput value={session.code} upper onChange={(v) => setField('code', v)} /></Field>
+                <Field label="DRENA"><TextInput value={session.drena} upper onChange={(v) => setField('drena', v)} /></Field>
               </div>
-              <Input label="Ministère" value={session.ministere} onChange={(e) => setField('ministere', e.target.value)} uppercase />
-              <Input label="Session" value={session.examSession} onChange={(e) => setField('examSession', e.target.value)} placeholder="Ex: SESSION 2025" uppercase />
+              <Field label="Ministère"><TextInput value={session.ministere} upper onChange={(v) => setField('ministere', v)} /></Field>
+              <Field label="Session"><TextInput value={session.examSession} upper placeholder="EX: SESSION 2025" onChange={(v) => setField('examSession', v)} /></Field>
             </div>
           </div>
         )}
 
         {tab === 'classes' && (
-          <div className="flex flex-col gap-5">
+          <div className="rise" style={{ display: 'flex', flexDirection: 'column', gap: 44, maxWidth: 800 }}>
             {!isBac && (
-              <div className="bg-white rounded-xl border border-[#E5DDD5] p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <h2 className="font-bold text-[#0A0A0A]">Centres d'examen</h2>
-                  <Button size="sm" variant="primary" onClick={addCentre} className="shrink-0">+ Centre</Button>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
+                  <SectionHead n="02" title="Centres d’examen" desc="Regroupez les classes par centre pour le rapport par établissement." />
+                  <button className="btn btn--sm" onClick={addCentre}>+ Centre</button>
                 </div>
-                {session.centres.length === 0 && (
-                  <p className="text-sm text-gray-400 py-4 text-center">Aucun centre. Ajoutez des centres pour le rapport « par établissement ».</p>
-                )}
-                <div className="flex flex-col gap-2">
-                  {session.centres.map((c) => (
-                    <div key={c.id} className="flex items-center gap-2">
-                      <Input value={c.name} onChange={(e) => updateCentre(c.id, e.target.value)} className="flex-1" uppercase />
-                      <Button size="sm" variant="danger" onClick={() => deleteCentre(c.id)} className="shrink-0">✕</Button>
+                <div style={{ marginTop: 22 }}>
+                  {session.centres.length === 0 && <Placeholder text="Aucun centre pour l’instant." />}
+                  {session.centres.map((c, i) => (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                      <input className="input" style={{ flex: 1, borderBottom: 'none' }} value={c.name} onChange={(e) => updateCentre(c.id, e.target.value.toUpperCase())} />
+                      <button className="btn btn--ghost btn--sm btn--danger" onClick={() => deleteCentre(c.id)}>✕</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <div className="bg-white rounded-xl border border-[#E5DDD5] p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <h2 className="font-bold text-[#0A0A0A]">Classes</h2>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => setShowImport(true)} className="flex-1 sm:flex-none justify-center">Importer Excel/CSV</Button>
-                  <Button size="sm" variant="primary" onClick={addClass} className="flex-1 sm:flex-none justify-center">+ Classe</Button>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <SectionHead n={isBac ? '02' : '·'} title="Classes" desc="Déclarez les classes ; saisissez les chiffres à l’étape suivante." />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
+                  <button className="btn btn--sm btn--solid" onClick={addClass}>+ Classe</button>
                 </div>
               </div>
-              {session.classes.length === 0 && (
-                <p className="text-sm text-gray-400 py-4 text-center">Aucune classe. Ajoutez des classes ou importez depuis un fichier.</p>
-              )}
-              <div className="flex flex-col gap-2">
-                {session.classes.map((cls) => (
-                  <div key={cls.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <Input value={cls.name} onChange={(e) => updateClass(cls.id, 'name', e.target.value)} placeholder="Ex: 3EME 1" className="flex-1" uppercase />
-                    <div className="flex gap-2">
-                      {!isBac && (
-                        <Select options={centreOptions} value={cls.centreId ?? ''} onChange={(e) => updateClass(cls.id, 'centreId', e.target.value || null)} className="flex-1" />
-                      )}
-                      <Button size="sm" variant="danger" onClick={() => deleteClass(cls.id)} className="shrink-0">✕</Button>
-                    </div>
+              <div style={{ marginTop: 22 }}>
+                {session.classes.length === 0 && <Placeholder text="Aucune classe. Ajoutez-en ou importez un fichier." />}
+                {session.classes.map((cls, i) => (
+                  <div key={cls.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+                    <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                    <input className="input input--up" style={{ flex: '1 1 160px', borderBottom: 'none' }} placeholder="EX: 3ÈME A" value={cls.name} onChange={(e) => updateClass(cls.id, 'name', e.target.value.toUpperCase())} />
+                    {!isBac && (
+                      <select className="select" style={{ flex: '0 1 200px' }} value={cls.centreId || ''} onChange={(e) => updateClass(cls.id, 'centreId', e.target.value || null)}>
+                        {centreOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    )}
+                    <button className="btn btn--ghost btn--sm btn--danger" onClick={() => deleteClass(cls.id)}>✕</button>
                   </div>
                 ))}
               </div>
@@ -224,104 +185,47 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         )}
 
         {tab === 'saisie' && (
-          <div className="bg-white rounded-xl border border-[#E5DDD5] overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-[#E5DDD5]">
-              <h2 className="font-bold text-[#0A0A0A]">Saisie des données</h2>
-              <Button size="sm" onClick={() => setShowImport(true)} className="justify-center">Importer Excel/CSV</Button>
+          <div className="rise">
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+              <SectionHead n="03" title="Saisie des données" desc="Les colonnes grisées sont calculées en direct. Les valeurs impossibles sont signalées en orange." />
+              <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
             </div>
 
             {totalErrors > 0 && (
-              <div className="bg-red-50 border-b border-red-200 px-4 sm:px-5 py-3 flex items-start gap-3">
-                <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
+              <div style={{ display: 'flex', gap: 12, padding: '14px 16px', border: '1px solid var(--orange-d)', background: 'var(--orange-w)', borderRadius: 4, marginBottom: 16 }}>
+                <span style={{ color: 'var(--orange-d)', fontSize: 18, lineHeight: 1 }}>▲</span>
                 <div>
-                  <p className="text-sm font-semibold text-red-700">{totalErrors} valeur{totalErrors > 1 ? 's' : ''} incohérente{totalErrors > 1 ? 's' : ''} à corriger</p>
-                  <p className="text-xs text-red-600 mt-0.5">Les cellules en rouge sont impossibles (admis &gt; présents, présents &gt; inscrits…). Survolez une cellule pour le détail. En attendant, les calculs et taux sont plafonnés automatiquement.</p>
+                  <div className="mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--orange-d)', letterSpacing: '0.04em' }}>{totalErrors} VALEUR{totalErrors > 1 ? 'S' : ''} INCOHÉRENTE{totalErrors > 1 ? 'S' : ''}</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 3 }}>Les cellules en orange sont impossibles (admis &gt; présents, présents &gt; inscrits…). Les taux restent plafonnés à 100 %.</div>
                 </div>
               </div>
             )}
 
             {session.classes.length === 0 ? (
-              <p className="text-center text-gray-400 py-12 text-sm">Ajoutez d'abord des classes dans l'onglet « Classes »</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-[#1C2B3A] text-white">
-                      <th className="border border-[#2D4155] text-left px-3 py-2.5 text-xs font-semibold uppercase tracking-wider sticky left-0 bg-[#1C2B3A] min-w-[120px] z-10">
-                        {isBac ? 'Classe & Série' : 'Classe'}
-                      </th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-blue-200">Inscrits G</th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-pink-200">Inscrits F</th>
-                      {isBac ? (
-                        <>
-                          <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-blue-200">Présents G</th>
-                          <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-pink-200">Présents F</th>
-                        </>
-                      ) : (
-                        <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-[#F4732A]">Cand. Présents</th>
-                      )}
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-blue-200">Admis G</th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-pink-200">Admis F</th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Tot. inscrits</th>
-                      {isBac && <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Absents</th>}
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Tot. admis</th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Taux</th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Taux G</th>
-                      <th className="border border-[#2D4155] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap bg-[#0F1E2C]">Taux F</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {session.classes.map((cls, i) => {
-                      const computed = computeRow(cls, session.examType);
-                      const errs = validateRow(cls, session.examType);
-                      return (
-                        <tr key={cls.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="border border-gray-200 px-3 py-0 h-9 sticky left-0 bg-inherit font-semibold text-[#0A0A0A] text-xs z-10">{cls.name || '—'}</td>
-                          <NumCell value={cls.inscritsGarcon} onChange={(v) => updateClass(cls.id, 'inscritsGarcon', v)} invalid={!!errs.inscritsGarcon} title={errs.inscritsGarcon} />
-                          <NumCell value={cls.inscritsFille} onChange={(v) => updateClass(cls.id, 'inscritsFille', v)} invalid={!!errs.inscritsFille} title={errs.inscritsFille} />
-                          {isBac ? (
-                            <>
-                              <NumCell value={cls.presentsGarcon} onChange={(v) => updateClass(cls.id, 'presentsGarcon', v)} invalid={!!errs.presentsGarcon} title={errs.presentsGarcon} />
-                              <NumCell value={cls.presentsFille} onChange={(v) => updateClass(cls.id, 'presentsFille', v)} invalid={!!errs.presentsFille} title={errs.presentsFille} />
-                            </>
-                          ) : (
-                            <NumCell value={cls.presentsTotal} onChange={(v) => updateClass(cls.id, 'presentsTotal', v)} invalid={!!errs.presentsTotal} title={errs.presentsTotal} />
-                          )}
-                          <NumCell value={cls.admisGarcon} onChange={(v) => updateClass(cls.id, 'admisGarcon', v)} invalid={!!errs.admisGarcon} title={errs.admisGarcon} />
-                          <NumCell value={cls.admisFille} onChange={(v) => updateClass(cls.id, 'admisFille', v)} invalid={!!errs.admisFille} title={errs.admisFille} />
-                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs text-[#1C2B3A] bg-[#F0F4F8] font-semibold">{computed.inscritsTotal}</td>
-                          {isBac && <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs text-[#1C2B3A] bg-[#F0F4F8]">{computed.absents}</td>}
-                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs text-[#1C2B3A] bg-[#F0F4F8] font-semibold">{computed.admisTotal}</td>
-                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs font-semibold bg-[#F0F4F8] text-[#1C2B3A]">{pct(computed.tauxTotal)}</td>
-                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs bg-[#F0F4F8] text-[#1C2B3A]">{pct(computed.tauxGarcon)}</td>
-                          <td className="border border-gray-200 px-2 py-0 h-9 text-center text-xs bg-[#F0F4F8] text-[#1C2B3A]">{pct(computed.tauxFille)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div style={{ textAlign: 'center', padding: '70px 0' }}>
+                <p className="display" style={{ fontSize: 24, margin: 0 }}>Rien à saisir</p>
+                <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Ajoutez d’abord des classes.</p>
+                <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
+            ) : (
+              <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
           </div>
         )}
-      </main>
+      </div>
 
-      <Modal
-        open={showImport}
-        title="Importer des données"
-        onClose={() => { setShowImport(false); setImportErrors([]); }}
-        footer={<Button onClick={() => { setShowImport(false); setImportErrors([]); }}>Fermer</Button>}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500 leading-relaxed">Importez un fichier Excel (.xlsx) ou CSV avec les colonnes correctes.</p>
-          <Button size="sm" variant="ghost" onClick={() => downloadTemplate(session.examType)}>Télécharger le modèle {session.examType}</Button>
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-[#E5DDD5] rounded-xl p-8 cursor-pointer hover:border-[#1C2B3A] transition-colors group">
-            <span className="text-sm text-gray-400 group-hover:text-[#1C2B3A] transition-colors text-center">Cliquez ou glissez un fichier Excel/CSV</span>
-            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+      <Modal open={showImport} title="Importer des données" onClose={() => { setShowImport(false); setImportErrors([]); }}
+        footer={<button className="btn" onClick={() => { setShowImport(false); setImportErrors([]); }}>Fermer</button>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>Importez un fichier Excel (.xlsx) ou CSV. Les colonnes doivent suivre le modèle {session.examType}.</p>
+          <button className="btn btn--ghost btn--sm" onClick={() => downloadTemplate(session.examType)}>↓ Télécharger le modèle {session.examType}</button>
+          <label style={{ border: '1.5px dashed var(--line)', borderRadius: 4, padding: '34px 18px', textAlign: 'center', cursor: 'pointer', display: 'block' }}>
+            <div className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Cliquez ou glissez un fichier ici</div>
+            <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleImport} />
           </label>
           {importErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              {importErrors.map((e, i) => <p key={i} className="text-xs text-red-600">{e}</p>)}
+            <div style={{ border: '1px solid var(--orange-d)', borderRadius: 4, padding: '10px 14px', background: 'var(--orange-w)' }}>
+              {importErrors.map((e, i) => <p key={i} className="mono" style={{ margin: i === 0 ? 0 : '4px 0 0', fontSize: 11, color: 'var(--orange-d)' }}>{e}</p>)}
             </div>
           )}
         </div>
@@ -330,19 +234,105 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   );
 }
 
-function NumCell({ value, onChange, invalid, title }: { value: number; onChange: (v: number) => void; invalid?: boolean; title?: string }) {
+function SaisieTable({ session, isBac, updateClass }: {
+  session: Session;
+  isBac: boolean;
+  updateClass: (id: string, field: keyof ClassRow, value: number) => void;
+}) {
+  const computedRows = session.classes.map((c) => computeRow(c, session.examType));
+  const totals = computeTotals(computedRows, session.examType);
+
   return (
-    <td title={title} className={`p-0 h-9 border ${invalid ? 'border-red-400' : 'border-gray-200'}`} style={{ minWidth: '52px' }}>
-      <input
-        type="number"
-        min={0}
-        value={value === 0 ? '' : value}
-        placeholder="0"
+    <div className="scroll-x" style={{ border: '1px solid var(--line)', borderRadius: 4 }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13, minWidth: isBac ? 1080 : 860 }}>
+        <thead>
+          <tr style={{ background: 'var(--ink)' }}>
+            <ThG sticky>Classe</ThG>
+            <ThG c="gar">Inscr. G</ThG>
+            <ThG c="fil">Inscr. F</ThG>
+            {isBac ? (
+              <><ThG c="gar">Prés. G</ThG><ThG c="fil">Prés. F</ThG></>
+            ) : (
+              <ThG c="acc">Présents</ThG>
+            )}
+            <ThG c="gar">Admis G</ThG>
+            <ThG c="fil">Admis F</ThG>
+            <ThG calc>Tot. inscrits</ThG>
+            {isBac && <ThG calc>Absents</ThG>}
+            <ThG calc>Admis</ThG>
+            <ThG calc>Taux</ThG>
+          </tr>
+        </thead>
+        <tbody>
+          {session.classes.map((cls, i) => {
+            const cp = computedRows[i];
+            const errs = validateRow(cls, session.examType);
+            return (
+              <tr key={cls.id} style={{ background: i % 2 ? 'var(--paper-2)' : 'var(--card)' }}>
+                <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', borderRight: '1px solid var(--line)', borderBottom: '1px solid var(--line)', padding: '0 12px', height: 40, fontFamily: 'var(--display)', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
+                  {cls.name || '—'}
+                </td>
+                <NumCell value={cls.inscritsGarcon} onChange={(v) => updateClass(cls.id, 'inscritsGarcon', v)} err={errs.inscritsGarcon} />
+                <NumCell value={cls.inscritsFille} onChange={(v) => updateClass(cls.id, 'inscritsFille', v)} err={errs.inscritsFille} />
+                {isBac ? (
+                  <><NumCell value={cls.presentsGarcon} onChange={(v) => updateClass(cls.id, 'presentsGarcon', v)} err={errs.presentsGarcon} />
+                  <NumCell value={cls.presentsFille} onChange={(v) => updateClass(cls.id, 'presentsFille', v)} err={errs.presentsFille} /></>
+                ) : (
+                  <NumCell value={cls.presentsTotal} onChange={(v) => updateClass(cls.id, 'presentsTotal', v)} err={errs.presentsTotal} />
+                )}
+                <NumCell value={cls.admisGarcon} onChange={(v) => updateClass(cls.id, 'admisGarcon', v)} err={errs.admisGarcon} />
+                <NumCell value={cls.admisFille} onChange={(v) => updateClass(cls.id, 'admisFille', v)} err={errs.admisFille} />
+                <CalcCell>{cp.inscritsTotal}</CalcCell>
+                {isBac && <CalcCell>{cp.absents}</CalcCell>}
+                <CalcCell strong>{cp.admisTotal}</CalcCell>
+                <CalcCell strong>{pct(cp.tauxTotal)}</CalcCell>
+              </tr>
+            );
+          })}
+          <tr style={{ background: 'var(--paper-3)' }}>
+            <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--paper-3)', borderRight: '1px solid var(--line)', padding: '0 12px', height: 42, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '0.1em', fontWeight: 700 }}>TOTAL</td>
+            <TotCell>{totals.inscritsGarcon}</TotCell>
+            <TotCell>{totals.inscritsFille}</TotCell>
+            {isBac ? (<><TotCell>{totals.presentsGarcon}</TotCell><TotCell>{totals.presentsFille}</TotCell></>) : (<TotCell>{totals.presentsTotal}</TotCell>)}
+            <TotCell>{totals.admisGarcon}</TotCell>
+            <TotCell>{totals.admisFille}</TotCell>
+            <TotCell>{totals.inscritsTotal}</TotCell>
+            {isBac && <TotCell>{totals.absents}</TotCell>}
+            <TotCell strong>{totals.admisTotal}</TotCell>
+            <TotCell strong>{pct(totals.tauxTotal)}</TotCell>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ThG({ children, sticky, c, calc }: { children: React.ReactNode; sticky?: boolean; c?: string; calc?: boolean }) {
+  const color = c === 'gar' ? 'var(--green-w)' : c === 'fil' ? 'var(--orange-w)' : c === 'acc' ? 'var(--orange-w)' : calc ? 'rgba(255,255,255,0.55)' : '#fff';
+  return (
+    <th style={{ position: sticky ? 'sticky' : 'static', left: sticky ? 0 : 'auto', zIndex: sticky ? 3 : 1, background: 'var(--ink)', color, padding: '11px 10px', textAlign: sticky ? 'left' : 'center', fontFamily: 'var(--mono)', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 400, whiteSpace: 'nowrap', borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+      {children}
+    </th>
+  );
+}
+
+function NumCell({ value, onChange, err }: { value: number; onChange: (v: number) => void; err?: string }) {
+  return (
+    <td title={err || ''} style={{ padding: 0, height: 40, borderRight: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
+      <input type="number" min={0} value={value === 0 ? '' : value} placeholder="0"
         onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
-        className={`w-full h-full text-center px-1 text-sm focus:outline-none transition-colors ${
-          invalid ? 'bg-red-50 text-red-700 font-semibold focus:bg-red-100' : 'bg-transparent focus:bg-blue-50'
-        }`}
+        style={{ width: '100%', height: '100%', minWidth: 60, textAlign: 'center', border: 'none', background: err ? 'var(--orange-w)' : 'transparent', fontFamily: 'var(--mono)', fontSize: 13, color: err ? 'var(--orange-d)' : 'var(--ink)', fontWeight: err ? 700 : 400, outline: 'none', boxShadow: err ? 'inset 0 0 0 1.5px var(--orange-d)' : 'none' }}
+        onFocus={(e) => { if (!err) e.target.style.background = 'var(--paper-2)'; }}
+        onBlur={(e) => { if (!err) e.target.style.background = 'transparent'; }}
       />
     </td>
   );
+}
+
+function CalcCell({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
+  return <td style={{ height: 40, textAlign: 'center', background: 'var(--paper-2)', borderRight: '1px solid var(--line)', borderBottom: '1px solid var(--line)', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: strong ? 700 : 400, color: strong ? 'var(--ink)' : 'var(--ink-2)', whiteSpace: 'nowrap', padding: '0 8px' }}>{children}</td>;
+}
+
+function TotCell({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
+  return <td style={{ height: 42, textAlign: 'center', borderRight: '1px solid var(--line)', fontFamily: 'var(--mono)', fontSize: 12.5, fontWeight: 700, color: strong ? 'var(--ink)' : 'var(--ink-2)', whiteSpace: 'nowrap', padding: '0 8px' }}>{children}</td>;
 }
