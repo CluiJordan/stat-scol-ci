@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
 import { computeRow, computeTotals, pct } from '../lib/calculations';

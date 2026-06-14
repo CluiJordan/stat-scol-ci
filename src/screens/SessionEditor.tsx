@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { Session, ClassRow, Centre } from '../types';
 import { saveSession, getSession } from '../lib/storage';
@@ -39,15 +39,15 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [saved, setSaved] = useState(false);
-  const savedTimer = useState<ReturnType<typeof setTimeout>>(0 as unknown as ReturnType<typeof setTimeout>)[0];
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const persist = useCallback((s: Session) => {
     setSession(s);
     saveSession(s);
     setSaved(true);
-    clearTimeout(savedTimer);
-    setTimeout(() => setSaved(false), 1400);
-  }, [savedTimer]);
+    clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 1400);
+  }, []);
 
   const setField = (k: keyof Session, v: string) => persist({ ...session, [k]: v });
   const addCentre = () => { const c: Centre = { id: uuid(), name: `CENTRE ${session.centres.length + 1}` }; persist({ ...session, centres: [...session.centres, c] }); };
@@ -237,7 +237,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 function SaisieTable({ session, isBac, updateClass }: {
   session: Session;
   isBac: boolean;
-  updateClass: (id: string, field: keyof ClassRow, value: number) => void;
+  updateClass: (id: string, field: keyof ClassRow, value: string | number | null) => void;
 }) {
   const computedRows = session.classes.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computedRows, session.examType);

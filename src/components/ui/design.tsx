@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 /* ---------- SealMark ---------- */
 export function SealMark({ size = 28 }: { size?: number }) {
@@ -192,7 +192,7 @@ export function useToast(): [React.ReactNode, (msg: string) => void] {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setMsg(null), 2600);
   };
-  const node = msg ? (
+  const node: React.ReactNode = msg ? (
     <div className="fadein" style={{ position: 'fixed', bottom: 26, left: '50%', transform: 'translateX(-50%)', background: 'var(--ink)', color: 'var(--paper)', padding: '12px 18px', borderRadius: 4, zIndex: 6000, fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '0.04em', boxShadow: '0 8px 30px rgba(0,0,0,0.22)', whiteSpace: 'nowrap' }}>
       {msg}
     </div>
