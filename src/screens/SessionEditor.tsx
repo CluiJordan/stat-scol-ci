@@ -50,7 +50,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   }, []);
 
   const setField = (k: keyof Session, v: string) => persist({ ...session, [k]: v });
-  const addCentre = () => { const c: Centre = { id: uuid(), name: `CENTRE ${session.centres.length + 1}` }; persist({ ...session, centres: [...session.centres, c] }); };
+  const addCentre = () => { const c: Centre = { id: uuid(), name: `COLLÈGE ${session.centres.length + 1}` }; persist({ ...session, centres: [...session.centres, c] }); };
   const updateCentre = (id: string, name: string) => persist({ ...session, centres: session.centres.map((c) => c.id === id ? { ...c, name } : c) });
   const deleteCentre = (id: string) => persist({ ...session, centres: session.centres.filter((c) => c.id !== id), classes: session.classes.map((c) => c.centreId === id ? { ...c, centreId: null } : c) });
   const addClass = () => persist({ ...session, classes: [...session.classes, emptyRow()] });
@@ -114,11 +114,11 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const isBac = session.examType === 'BAC';
   const hasEleves = session.eleves.length > 0;
   const totalErrors = hasEleves ? 0 : countErrors(session.classes, session.examType);
-  const centreOptions = [{ value: '', label: '— Aucun centre —' }, ...session.centres.map((c) => ({ value: c.id, label: c.name }))];
+  const centreOptions = [{ value: '', label: '— Aucun collège —' }, ...session.centres.map((c) => ({ value: c.id, label: c.name }))];
 
   const steps = [
     { id: 'config' as Tab, n: '01', label: 'Configuration' },
-    { id: 'classes' as Tab, n: '02', label: isBac ? 'Classes' : 'Classes & centres' },
+    { id: 'classes' as Tab, n: '02', label: isBac ? 'Classes' : 'Classes & collèges' },
     { id: 'saisie' as Tab, n: '03', label: 'Saisie', badge: totalErrors },
   ];
 
@@ -192,11 +192,11 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             {!isBac && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
-                  <SectionHead n="02" title="Centres d'examen" desc="Regroupez les classes par centre pour le rapport par établissement." />
-                  <button className="btn btn--sm" onClick={addCentre}>+ Centre</button>
+                  <SectionHead n="02" title="Collèges" desc="Regroupez les classes par collège pour le rapport par établissement." />
+                  <button className="btn btn--sm" onClick={addCentre}>+ Collège</button>
                 </div>
                 <div style={{ marginTop: 22 }}>
-                  {session.centres.length === 0 && <Placeholder text="Aucun centre pour l'instant." />}
+                  {session.centres.length === 0 && <Placeholder text="Aucun collège pour l'instant." />}
                   {session.centres.map((c, i) => (
                     <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                       <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
