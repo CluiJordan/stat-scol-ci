@@ -572,13 +572,14 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
 
   const isValid = (val: string): boolean => {
     if (val.trim() === '') return true;
-    if (!/^\d+$/.test(val.trim())) return false;
-    const n = parseInt(val.trim(), 10);
+    const normalized = val.trim().replace(',', '.');
+    if (!/^\d+(\.\d+)?$/.test(normalized)) return false;
+    const n = parseFloat(normalized);
     return n >= 0 && n <= max;
   };
 
   const hasError = !isValid(raw);
-  const pts = hasError ? null : (raw.trim() === '' ? null : parseInt(raw.trim(), 10));
+  const pts = hasError ? null : (raw.trim() === '' ? null : parseFloat(raw.trim().replace(',', '.')));
   const isAdmis = pts !== null && pts >= threshold;
   const isAbsent = pts === 0;
   const isAjoure = pts !== null && pts > 0 && pts < threshold;
