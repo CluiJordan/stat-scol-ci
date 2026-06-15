@@ -212,7 +212,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
               {hasEleves && (
                 <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--green-w)', border: '1px solid var(--green-d)', borderRadius: 4 }}>
-                  <span style={{ color: 'var(--green-d)', fontSize: 16 }}>✓</span>
                   <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
                     <strong style={{ color: 'var(--green-d)' }}>{session.eleves.length} élèves importés</strong> — les stats sont calculées automatiquement depuis leurs points.
                   </span>
