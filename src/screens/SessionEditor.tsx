@@ -140,7 +140,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
       {/* Stepper */}
       <div style={{ borderBottom: '1px solid var(--line)', background: 'var(--paper)', position: 'sticky', top: 64, zIndex: 90 }}>
-        <div className="shell scroll-x" style={{ display: 'flex', gap: 0 }}>
+        <div className="shell scroll-x" style={{ display: 'flex', gap: 0, overflowY: 'hidden' }}>
           {steps.map((st) => {
             const active = tab === st.id;
             return (
