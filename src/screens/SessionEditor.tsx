@@ -63,6 +63,12 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
+  const deleteEleve = useCallback((id: string) => {
+    const newEleves = session.eleves.filter((e) => e.id !== id);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    persist({ ...session, eleves: newEleves, classes: newClasses });
+  }, [session, persist]);
+
   const clearEleves = () => {
     if (!window.confirm(`Supprimer les ${session.eleves.length} élèves importés ? Les totaux retourneront à la saisie manuelle.`)) return;
     persist({ ...session, eleves: [] });
@@ -276,7 +282,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
             ) : hasEleves ? (
-              <EleveSaisie session={session} updateEleve={updateEleve} />
+              <EleveSaisie session={session} updateEleve={updateEleve} deleteEleve={deleteEleve} />
             ) : (
               <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
@@ -324,9 +330,10 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 /* ─────────────────────────── Student list saisie ─────────────────────────── */
 
-function EleveSaisie({ session, updateEleve }: {
+function EleveSaisie({ session, updateEleve, deleteEleve }: {
   session: Session;
   updateEleve: (id: string, points: number | null) => void;
+  deleteEleve: (id: string) => void;
 }) {
   const { classes, eleves } = session;
 
@@ -376,12 +383,13 @@ function EleveSaisie({ session, updateEleve }: {
                     <th style={eleveThStyle(120, true)}>Matricule</th>
                     <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
                     <th style={eleveThStyle(90, false)}>Points</th>
-                    <th style={{ ...eleveThStyle(85, true), borderRight: 'none' }}>Statut</th>
+                    <th style={eleveThStyle(85, true)}>Statut</th>
+                    <th style={{ ...eleveThStyle(40, true), borderRight: 'none' }} />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((eleve, i) => (
-                    <EleveRow key={eleve.id} eleve={eleve} index={i} onCommit={updateEleve} />
+                    <EleveRow key={eleve.id} eleve={eleve} index={i} onCommit={updateEleve} onDelete={deleteEleve} />
                   ))}
                 </tbody>
               </table>
@@ -427,10 +435,11 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, onCommit }: {
+function EleveRow({ eleve, index, onCommit, onDelete }: {
   eleve: Eleve;
   index: number;
   onCommit: (id: string, points: number | null) => void;
+  onDelete: (id: string) => void;
 }) {
   const [raw, setRaw] = useState(() => eleve.points === null ? '' : String(eleve.points));
 
@@ -480,10 +489,18 @@ function EleveRow({ eleve, index, onCommit }: {
           }}
         />
       </td>
-      <td style={{ ...cell, width: 85, textAlign: 'center', borderRight: 'none' }}>
+      <td style={{ ...cell, width: 85, textAlign: 'center' }}>
         {isAdmis && <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: 'var(--green-d)' }}>{eleve.genre === 'F' ? 'ADMISE' : 'ADMIS'}</span>}
         {isAbsent && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{eleve.genre === 'F' ? 'ABSENTE' : 'ABSENT'}</span>}
         {isAjoure && <span className="mono" style={{ fontSize: 10, color: 'var(--orange-d)' }}>{eleve.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ'}</span>}
+      </td>
+      <td style={{ borderBottom: '1px solid var(--line-2)', width: 40, textAlign: 'center' }}>
+        <button onClick={() => onDelete(eleve.id)} title="Retirer cet élève"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 14, lineHeight: 1, padding: '0 4px' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--orange-d)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-3)')}>
+          ✕
+        </button>
       </td>
     </tr>
   );
