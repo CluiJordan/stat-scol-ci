@@ -9,7 +9,12 @@ export function applyElevesToClasses(
   if (eleves.length === 0) return classes;
   return classes.map((cls) => {
     const ce = eleves.filter((e) => e.classe === cls.name);
-    if (ce.length === 0) return cls;
+    if (ce.length === 0) return {
+      ...cls,
+      inscritsGarcon: 0, inscritsFille: 0,
+      presentsTotal: 0, presentsGarcon: 0, presentsFille: 0,
+      admisGarcon: 0, admisFille: 0,
+    };
     const g = ce.filter((e) => e.genre === 'M');
     const f = ce.filter((e) => e.genre === 'F');
     const present = (e: Eleve) => e.points !== null && e.points > 0;

@@ -205,7 +205,8 @@ export function Donut({ a, b, labelA, labelB, colorA = 'var(--gar)', colorB = 'v
   a: number; b: number; labelA: string; labelB: string;
   colorA?: string; colorB?: string; size?: number;
 }) {
-  const total = (a + b) || 1;
+  const actualTotal = a + b;
+  const total = actualTotal || 1;
   const r = size / 2 - 14;
   const circ = 2 * Math.PI * r;
   const pa = a / total;
@@ -232,7 +233,7 @@ export function Donut({ a, b, labelA, labelB, colorA = 'var(--gar)', colorB = 'v
         </g>
         <text x={cx} y={cy - 4} textAnchor="middle"
           fontFamily="var(--display)" fontWeight="800" fontSize="26" fill="var(--ink)">
-          {total}
+          {actualTotal}
         </text>
         <text x={cx} y={cy + 14} textAnchor="middle"
           fontFamily="var(--mono)" fontSize="9" letterSpacing="0.12em" fill="var(--ink-3)">
@@ -240,8 +241,8 @@ export function Donut({ a, b, labelA, labelB, colorA = 'var(--gar)', colorB = 'v
         </text>
       </svg>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <DonutLegend color={colorA} label={labelA} value={a} pct={Math.round(pa * 100)} />
-        <DonutLegend color={colorB} label={labelB} value={b} pct={Math.round((1 - pa) * 100)} />
+        <DonutLegend color={colorA} label={labelA} value={a} pct={actualTotal === 0 ? 0 : Math.round(pa * 100)} />
+        <DonutLegend color={colorB} label={labelB} value={b} pct={actualTotal === 0 ? 0 : Math.round((1 - pa) * 100)} />
       </div>
     </div>
   );
