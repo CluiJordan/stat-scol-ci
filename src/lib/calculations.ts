@@ -38,6 +38,11 @@ export function admisThreshold(examType: ExamType): number {
   return examType === 'BAC' ? 200 : 180;
 }
 
+/** Total de points possible : 360 pour le BEPC, 400 pour le BAC. */
+export function maxPoints(examType: ExamType): number {
+  return examType === 'BAC' ? 400 : 360;
+}
+
 /** Borne une valeur dans [min, max]. */
 export function clamp(value: number, min: number, max: number): number {
   if (Number.isNaN(value)) return min;

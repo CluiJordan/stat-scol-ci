@@ -4,7 +4,7 @@ import type { Session, ClassRow, Centre, Eleve } from '../types';
 import { saveSession, getSession } from '../lib/storage';
 import { importFromFile } from '../lib/importFile';
 import { downloadTemplate, downloadElevesTemplate, exportElevesResultats } from '../lib/exportExcel';
-import { computeRow, computeTotals, pct, applyElevesToClasses, admisThreshold } from '../lib/calculations';
+import { computeRow, computeTotals, pct, applyElevesToClasses, admisThreshold, maxPoints } from '../lib/calculations';
 import { validateRow, countErrors } from '../lib/validation';
 import { Masthead, Modal, Field, TextInput, SelectInput, SectionHead, Placeholder } from '../components/ui/design';
 
@@ -533,13 +533,14 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
   }, [eleve.points]);
 
   const threshold = admisThreshold(examType);
+  const max = maxPoints(examType);
   const pts = raw === '' ? null : parseInt(raw, 10);
   const isAdmis = pts !== null && !isNaN(pts) && pts >= threshold;
   const isAbsent = pts === 0;
   const isAjoure = pts !== null && !isNaN(pts) && pts > 0 && pts < threshold;
 
   const commit = () => {
-    const p = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
+    const p = raw === '' ? null : Math.min(max, Math.max(0, parseInt(raw, 10) || 0));
     onCommit(eleve.id, p);
   };
 
@@ -559,7 +560,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
       </td>
       <td style={{ ...cell, width: 90, padding: 0 }}>
         <input
-          type="number" min={0} max={400}
+          type="number" min={0} max={max}
           value={raw} placeholder="—"
           data-points-input
           onChange={(e) => setRaw(e.target.value)}
