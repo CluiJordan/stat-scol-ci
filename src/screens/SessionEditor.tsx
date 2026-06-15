@@ -39,6 +39,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [pendingDeleteCentreId, setPendingDeleteCentreId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -209,7 +210,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                     <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                       <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
                       <input className="input input--up" style={{ flex: 1 }} value={c.name} onChange={(e) => updateCentre(c.id, e.target.value.toUpperCase())} />
-                      <button className="btn btn--ghost btn--sm btn--danger" onClick={() => deleteCentre(c.id)}>✕</button>
+                      <button className="btn btn--ghost btn--sm btn--danger" onClick={() => setPendingDeleteCentreId(c.id)}>✕</button>
                     </div>
                   ))}
                 </div>
@@ -306,6 +307,24 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         )}
       </div>
 
+      {/* Confirm delete college */}
+      {pendingDeleteCentreId && (() => {
+        const centre = session.centres.find((c) => c.id === pendingDeleteCentreId);
+        return (
+          <Modal open title={`Supprimer « ${centre?.name ?? 'ce collège'} » ?`} onClose={() => setPendingDeleteCentreId(null)}
+            footer={
+              <>
+                <button className="btn" onClick={() => setPendingDeleteCentreId(null)}>Annuler</button>
+                <button className="btn btn--accent btn--danger" onClick={() => { deleteCentre(pendingDeleteCentreId); setPendingDeleteCentreId(null); }}>Supprimer</button>
+              </>
+            }>
+            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
+              Les classes rattachées à ce collège seront dissociées mais pas supprimées.
+            </p>
+          </Modal>
+        );
+      })()}
+
       {/* Import modal */}
       <Modal open={showImport} title="Importer des données" onClose={() => { setShowImport(false); setImportErrors([]); }}
         footer={<button className="btn" onClick={() => { setShowImport(false); setImportErrors([]); }}>Fermer</button>}>
@@ -363,6 +382,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
 }) {
   const [search, setSearch] = useState('');
   const [editingEleve, setEditingEleve] = useState<Eleve | null>(null);
+  const [pendingDeleteEleve, setPendingDeleteEleve] = useState<Eleve | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const { classes, eleves } = session;
 
@@ -453,7 +473,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
                 </thead>
                 <tbody>
                   {rows.map((eleve, i) => (
-                    <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={deleteEleve} onEdit={setEditingEleve} />
+                    <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} />
                   ))}
                 </tbody>
               </table>
@@ -504,6 +524,21 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
           onClose={() => setShowAdd(false)}
         />
       )}
+
+      {/* Confirm delete eleve */}
+      {pendingDeleteEleve && (
+        <Modal open title="Retirer cet élève ?" onClose={() => setPendingDeleteEleve(null)}
+          footer={
+            <>
+              <button className="btn" onClick={() => setPendingDeleteEleve(null)}>Annuler</button>
+              <button className="btn btn--accent btn--danger" onClick={() => { deleteEleve(pendingDeleteEleve.id); setPendingDeleteEleve(null); }}>Retirer</button>
+            </>
+          }>
+          <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
+            Voulez-vous retirer <strong>{pendingDeleteEleve.nom} {pendingDeleteEleve.prenoms}</strong> de la liste ? Cette action est irréversible.
+          </p>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -523,7 +558,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
   index: number;
   examType: import('../types').ExamType;
   onCommit: (id: string, points: number | null) => void;
-  onDelete: (id: string) => void;
+  onDelete: (eleve: Eleve) => void;
   onEdit: (eleve: Eleve) => void;
 }) {
   const [raw, setRaw] = useState(() => eleve.points === null ? '' : String(eleve.points));
@@ -534,13 +569,23 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
 
   const threshold = admisThreshold(examType);
   const max = maxPoints(examType);
-  const pts = raw === '' ? null : parseInt(raw, 10);
-  const isAdmis = pts !== null && !isNaN(pts) && pts >= threshold;
+
+  const sanitize = (val: string): number | null => {
+    if (val.trim() === '') return null;
+    const normalized = val.trim().replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const n = parseFloat(normalized);
+    if (isNaN(n)) return null;
+    return Math.min(max, Math.max(0, Math.floor(n)));
+  };
+
+  const pts = sanitize(raw);
+  const isAdmis = pts !== null && pts >= threshold;
   const isAbsent = pts === 0;
-  const isAjoure = pts !== null && !isNaN(pts) && pts > 0 && pts < threshold;
+  const isAjoure = pts !== null && pts > 0 && pts < threshold;
 
   const commit = () => {
-    const p = raw === '' ? null : Math.min(max, Math.max(0, parseInt(raw, 10) || 0));
+    const p = sanitize(raw);
+    if (p !== null) setRaw(String(p));
     onCommit(eleve.id, p);
   };
 
@@ -560,7 +605,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
       </td>
       <td style={{ ...cell, width: 90, padding: 0 }}>
         <input
-          type="number" min={0} max={max}
+          type="text" inputMode="numeric"
           value={raw} placeholder="—"
           data-points-input
           onChange={(e) => setRaw(e.target.value)}
@@ -596,7 +641,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-3)')}>
           ✎
         </button>
-        <button onClick={() => onDelete(eleve.id)} title="Retirer cet élève"
+        <button onClick={() => onDelete(eleve)} title="Retirer cet élève"
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 14, padding: '0 5px' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--orange-d)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-3)')}>
