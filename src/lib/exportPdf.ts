@@ -27,7 +27,9 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
 
   doc.setFontSize(subSize);
   doc.setFont('helvetica', 'normal');
-  const sub = [session.examType, session.examSession, session.anneeScolaire].filter(Boolean).join(' — ');
+  // Derive the session year from the second part of anneeScolaire (e.g. "2025-2026" → "2026")
+  const sessionYear = session.anneeScolaire?.split(/[-–]/).at(-1)?.trim() ?? session.examSession ?? '';
+  const sub = `${session.examType} session ${sessionYear}`;
   doc.text(sub, pageW / 2, headerY + 15, { align: 'center' });
 
   doc.setFont('helvetica', 'italic');
@@ -57,7 +59,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
     startY: headerY + 26,
     head: [['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
-    styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
+    styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center', overflow: isGrand ? 'ellipsize' : 'linebreak' },
     headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
     bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
     alternateRowStyles: { fillColor: [248, 248, 248] },
