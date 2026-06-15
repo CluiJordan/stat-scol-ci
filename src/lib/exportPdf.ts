@@ -1,11 +1,11 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Session, Centre } from '../types';
-import { computeRow, computeTotals, pct } from './calculations';
+import { computeRow, computeTotals, pct, admisThreshold } from './calculations';
 
 export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
   const admis = (session.eleves ?? [])
-    .filter((e) => e.points !== null && e.points >= 180)
+    .filter((e) => e.points !== null && e.points >= admisThreshold(session.examType))
     .sort((a, b) => {
       const n = a.nom.localeCompare(b.nom, 'fr');
       return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr');

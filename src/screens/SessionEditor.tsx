@@ -4,7 +4,7 @@ import type { Session, ClassRow, Centre, Eleve } from '../types';
 import { saveSession, getSession } from '../lib/storage';
 import { importFromFile } from '../lib/importFile';
 import { downloadTemplate, downloadElevesTemplate, exportElevesResultats } from '../lib/exportExcel';
-import { computeRow, computeTotals, pct, applyElevesToClasses } from '../lib/calculations';
+import { computeRow, computeTotals, pct, applyElevesToClasses, admisThreshold } from '../lib/calculations';
 import { validateRow, countErrors } from '../lib/validation';
 import { Masthead, Modal, Field, TextInput, SelectInput, SectionHead, Placeholder } from '../components/ui/design';
 
@@ -264,7 +264,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
               <SectionHead n="03" title="Saisie des données"
                 desc={hasEleves
-                  ? 'Entrez les points de chaque élève. Points ≥ 180 = Admis · Points = 0 = Absent.'
+                  ? `Entrez les points de chaque élève. Points ≥ ${admisThreshold(session.examType)} = Admis · Points = 0 = Absent.`
                   : 'Les colonnes grisées sont calculées en direct. Les valeurs impossibles sont signalées en orange.'
                 }
               />
@@ -423,7 +423,8 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
       {groups.map(({ cls, rows, total }) => {
         const entered = rows.filter((e) => e.points !== null).length;
         const present = rows.filter((e) => e.points !== null && e.points > 0).length;
-        const admis = rows.filter((e) => e.points !== null && e.points >= 180).length;
+        const threshold = admisThreshold(session.examType);
+        const admis = rows.filter((e) => e.points !== null && e.points >= threshold).length;
         const progress = total > 0 ? Math.round((eleves.filter((e) => e.classe === cls.name && e.points !== null).length / total) * 100) : 0;
         return (
           <div key={cls.id}>
@@ -452,7 +453,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
                 </thead>
                 <tbody>
                   {rows.map((eleve, i) => (
-                    <EleveRow key={eleve.id} eleve={eleve} index={i} onCommit={updateEleve} onDelete={deleteEleve} onEdit={setEditingEleve} />
+                    <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={deleteEleve} onEdit={setEditingEleve} />
                   ))}
                 </tbody>
               </table>
@@ -517,9 +518,10 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, onCommit, onDelete, onEdit }: {
+function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
   eleve: Eleve;
   index: number;
+  examType: import('../types').ExamType;
   onCommit: (id: string, points: number | null) => void;
   onDelete: (id: string) => void;
   onEdit: (eleve: Eleve) => void;
@@ -530,10 +532,11 @@ function EleveRow({ eleve, index, onCommit, onDelete, onEdit }: {
     setRaw(eleve.points === null ? '' : String(eleve.points));
   }, [eleve.points]);
 
+  const threshold = admisThreshold(examType);
   const pts = raw === '' ? null : parseInt(raw, 10);
-  const isAdmis = pts !== null && !isNaN(pts) && pts >= 180;
+  const isAdmis = pts !== null && !isNaN(pts) && pts >= threshold;
   const isAbsent = pts === 0;
-  const isAjoure = pts !== null && !isNaN(pts) && pts > 0 && pts < 180;
+  const isAjoure = pts !== null && !isNaN(pts) && pts > 0 && pts < threshold;
 
   const commit = () => {
     const p = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);

@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { Session } from '../types';
-import { computeRow, computeTotals, pct } from './calculations';
+import { computeRow, computeTotals, pct, admisThreshold } from './calculations';
 
 export function exportElevesResultats(session: Session) {
   const headers = ['N°', 'Matricule', 'Nom', 'Prénoms', 'Genre', 'Classe', 'Points', 'Statut'];
@@ -9,8 +9,9 @@ export function exportElevesResultats(session: Session) {
     return cls !== 0 ? cls : a.nom.localeCompare(b.nom, 'fr');
   });
   const rows = sorted.map((e, i) => {
+    const threshold = admisThreshold(session.examType);
     const statut = e.points === null ? ''
-      : e.points >= 180 ? (e.genre === 'F' ? 'ADMISE' : 'ADMIS')
+      : e.points >= threshold ? (e.genre === 'F' ? 'ADMISE' : 'ADMIS')
       : e.points === 0 ? (e.genre === 'F' ? 'ABSENTE' : 'ABSENT')
       : (e.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ');
     return [i + 1, e.matricule || '', e.nom, e.prenoms, e.genre, e.classe, e.points ?? '', statut];

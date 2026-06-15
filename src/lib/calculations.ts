@@ -18,7 +18,8 @@ export function applyElevesToClasses(
     const g = ce.filter((e) => e.genre === 'M');
     const f = ce.filter((e) => e.genre === 'F');
     const present = (e: Eleve) => e.points !== null && e.points > 0;
-    const admis = (e: Eleve) => e.points !== null && e.points >= 180;
+    const threshold = admisThreshold(examType);
+    const admis = (e: Eleve) => e.points !== null && e.points >= threshold;
     return {
       ...cls,
       inscritsGarcon: g.length,
@@ -30,6 +31,11 @@ export function applyElevesToClasses(
       admisFille: f.filter(admis).length,
     };
   });
+}
+
+/** Seuil d'admission selon l'examen : 180/360 pour le BEPC, 200/400 pour le BAC. */
+export function admisThreshold(examType: ExamType): number {
+  return examType === 'BAC' ? 200 : 180;
 }
 
 /** Borne une valeur dans [min, max]. */

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
-import { computeRow, computeTotals, pct } from '../lib/calculations';
+import { computeRow, computeTotals, pct, admisThreshold } from '../lib/calculations';
 import { countErrors } from '../lib/validation';
 import { exportBEPCGeneral, exportBEPCParEtablissement, exportBACStatistique, exportListeAdmis } from '../lib/exportPdf';
 import { exportExcel } from '../lib/exportExcel';
@@ -135,7 +135,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
         {/* LISTE DES ADMIS */}
         {session.eleves.length > 0 && (() => {
-          const admisCount = session.eleves.filter((e) => e.points !== null && e.points >= 180).length;
+          const admisCount = session.eleves.filter((e) => e.points !== null && e.points >= admisThreshold(session.examType)).length;
           return (
             <section style={{ marginTop: 56 }}>
               <SectionHead n="★" title="Liste des admis" desc={`${admisCount} admis — triés alphabétiquement, toutes classes confondues.`} />
