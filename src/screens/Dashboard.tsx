@@ -165,6 +165,16 @@ export default function Dashboard({ onOpen, onReports }: Props) {
           Cette action est irréversible. Toutes les données seront effacées.
         </p>
       </Modal>
+
+      {/* Signature */}
+      <div style={{ position: 'fixed', bottom: 14, right: 18, textAlign: 'right', pointerEvents: 'none' }}>
+        <div className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.06em', lineHeight: 1.6 }}>
+          Développé par <strong style={{ color: 'var(--ink-2)' }}>Ruds.</strong>
+        </div>
+        <div className="mono" style={{ fontSize: 9, color: 'var(--ink-3)', letterSpacing: '0.04em' }}>
+          ruds.devci@gmail.com
+        </div>
+      </div>
     </div>
   );
 }
