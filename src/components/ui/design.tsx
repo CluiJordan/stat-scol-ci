@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 /* ---------- SealMark ---------- */
 export function SealMark({ size = 28 }: { size?: number }) {
@@ -115,7 +116,7 @@ export function Modal({ open, title, onClose, children, footer }: {
   footer?: React.ReactNode;
 }) {
   if (!open) return null;
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, background: 'rgba(26,22,17,0.42)', backdropFilter: 'blur(3px)', animation: 'fadein calc(.25s * var(--speed)) ease both' }}
@@ -132,7 +133,8 @@ export function Modal({ open, title, onClose, children, footer }: {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
