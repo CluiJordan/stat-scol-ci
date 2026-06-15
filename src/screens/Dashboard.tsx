@@ -30,7 +30,6 @@ export default function Dashboard({ onOpen, onReports }: Props) {
   const [sessions, setSessions] = useState<Session[]>(getSessions);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteChecked, setDeleteChecked] = useState(false);
   const years = schoolYearOptions();
   const [form, setForm] = useState({
     etablissement: '',
@@ -68,7 +67,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
   }
 
   function handleDelete() {
-    if (deleteId) { deleteSession(deleteId); refresh(); setDeleteId(null); setDeleteChecked(false); }
+    if (deleteId) { deleteSession(deleteId); refresh(); setDeleteId(null); }
   }
 
   const toDelete = sessions.find((s) => s.id === deleteId);
@@ -154,24 +153,17 @@ export default function Dashboard({ onOpen, onReports }: Props) {
         </div>
       </Modal>
 
-      <Modal open={!!deleteId} title="Supprimer la session ?" onClose={() => { setDeleteId(null); setDeleteChecked(false); }}
+      <Modal open={!!deleteId} title="Supprimer la session ?" onClose={() => setDeleteId(null)}
         footer={
           <>
-            <button className="btn" onClick={() => { setDeleteId(null); setDeleteChecked(false); }}>Annuler</button>
-            <button className="btn btn--accent btn--danger" disabled={!deleteChecked} style={{ opacity: deleteChecked ? 1 : 0.4, cursor: deleteChecked ? 'pointer' : 'not-allowed' }} onClick={handleDelete}>Supprimer</button>
+            <button className="btn" onClick={() => setDeleteId(null)}>Annuler</button>
+            <button className="btn btn--accent btn--danger" onClick={handleDelete}>Supprimer</button>
           </>
         }>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
-            <strong style={{ color: 'var(--ink)' }}>{toDelete?.etablissement}</strong><br />
-            Cette action est irréversible. Toutes les données seront effacées.
-          </p>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', padding: '10px 12px', background: 'var(--paper-2)', borderRadius: 4, border: '1px solid var(--line)' }}>
-            <input type="checkbox" checked={deleteChecked} onChange={(e) => setDeleteChecked(e.target.checked)}
-              style={{ width: 15, height: 15, accentColor: 'var(--orange-d)', cursor: 'pointer', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Je confirme cette suppression</span>
-          </label>
-        </div>
+        <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--ink)' }}>{toDelete?.etablissement}</strong><br />
+          Cette action est irréversible. Toutes les données seront effacées.
+        </p>
       </Modal>
 
       {/* Signature */}
