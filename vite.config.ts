@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: process.env.ELECTRON === '1' ? './' : '/',
+  server: {
+    watch: { ignored: ['**/release/**', '**/electron/**'] },
+  },
   plugins: [
     react(),
     VitePWA({
