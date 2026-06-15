@@ -57,6 +57,13 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const updateClass = (id: string, field: keyof ClassRow, value: string | number | null) => persist({ ...session, classes: session.classes.map((c) => c.id === id ? { ...c, [field]: value } : c) });
   const deleteClass = (id: string) => persist({ ...session, classes: session.classes.filter((c) => c.id !== id) });
 
+  const addEleve = useCallback((eleve: Omit<Eleve, 'id'>) => {
+    const newEleve: Eleve = { ...eleve, id: uuid() };
+    const newEleves = [...session.eleves, newEleve];
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    persist({ ...session, eleves: newEleves, classes: newClasses });
+  }, [session, persist]);
+
   const updateEleve = useCallback((id: string, points: number | null) => {
     const newEleves = session.eleves.map((e) => e.id === id ? { ...e, points } : e);
     const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
@@ -200,7 +207,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                   {session.centres.map((c, i) => (
                     <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                       <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
-                      <input className="input" style={{ flex: 1, borderBottom: 'none' }} value={c.name} onChange={(e) => updateCentre(c.id, e.target.value.toUpperCase())} />
+                      <input className="input input--up" style={{ flex: 1 }} value={c.name} onChange={(e) => updateCentre(c.id, e.target.value.toUpperCase())} />
                       <button className="btn btn--ghost btn--sm btn--danger" onClick={() => deleteCentre(c.id)}>✕</button>
                     </div>
                   ))}
@@ -290,7 +297,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
             ) : hasEleves ? (
-              <EleveSaisie session={session} updateEleve={updateEleve} deleteEleve={deleteEleve} updateEleveInfo={updateEleveInfo} />
+              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} updateEleveInfo={updateEleveInfo} />
             ) : (
               <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
@@ -338,14 +345,16 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 /* ─────────────────────────── Student list saisie ─────────────────────────── */
 
-function EleveSaisie({ session, updateEleve, deleteEleve, updateEleveInfo }: {
+function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveInfo }: {
   session: Session;
+  addEleve: (eleve: Omit<Eleve, 'id'>) => void;
   updateEleve: (id: string, points: number | null) => void;
   deleteEleve: (id: string) => void;
   updateEleveInfo: (id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
 }) {
   const [search, setSearch] = useState('');
   const [editingEleve, setEditingEleve] = useState<Eleve | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
   const { classes, eleves } = session;
 
   const q = search.toLowerCase().trim();
@@ -382,21 +391,24 @@ function EleveSaisie({ session, updateEleve, deleteEleve, updateEleveInfo }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-      {/* Search bar */}
-      <div style={{ position: 'relative' }}>
-        <input
-          className="input"
-          placeholder="Rechercher par nom, prénoms ou matricule…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: '100%', paddingLeft: 36 }}
-        />
-        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', fontSize: 14, pointerEvents: 'none' }}>⌕</span>
-        {q && (
-          <span className="mono" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--ink-3)' }}>
-            {totalMatches} résultat{totalMatches !== 1 ? 's' : ''}
-          </span>
-        )}
+      {/* Search bar + add button */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <input
+            className="input"
+            placeholder="Rechercher par nom, prénoms ou matricule…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: '100%', paddingLeft: 36 }}
+          />
+          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', fontSize: 14, pointerEvents: 'none' }}>⌕</span>
+          {q && (
+            <span className="mono" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--ink-3)' }}>
+              {totalMatches} résultat{totalMatches !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
       </div>
 
       {groups.map(({ cls, rows, total }) => {
@@ -471,6 +483,15 @@ function EleveSaisie({ session, updateEleve, deleteEleve, updateEleveInfo }: {
           classes={session.classes.map((c) => c.name)}
           onSave={(updates) => { updateEleveInfo(editingEleve.id, updates); setEditingEleve(null); }}
           onClose={() => setEditingEleve(null)}
+        />
+      )}
+
+      {/* Add modal */}
+      {showAdd && (
+        <AddEleveModal
+          classes={session.classes.map((c) => c.name)}
+          onSave={(eleve) => { addEleve(eleve); setShowAdd(false); }}
+          onClose={() => setShowAdd(false)}
         />
       )}
     </div>
@@ -603,6 +624,63 @@ function EditEleveModal({ eleve, classes, onSave, onClose }: {
             <SelectInput value={classe} options={[...classes.map((c) => ({ value: c, label: c })), ...(classes.includes(classe) ? [] : [{ value: classe, label: classe }])]} onChange={setClasse} />
           </Field>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ───────────────────────── Add eleve modal ───────────────────────── */
+
+function AddEleveModal({ classes, onSave, onClose }: {
+  classes: string[];
+  onSave: (eleve: Omit<Eleve, 'id'>) => void;
+  onClose: () => void;
+}) {
+  const [nom, setNom] = useState('');
+  const [prenoms, setPrenoms] = useState('');
+  const [matricule, setMatricule] = useState('');
+  const [genre, setGenre] = useState<'M' | 'F'>('M');
+  const [classe, setClasse] = useState(classes[0] ?? '');
+  const [points, setPoints] = useState('');
+
+  const save = () => {
+    const trimmedNom = nom.trim().toUpperCase();
+    if (!trimmedNom) return;
+    onSave({
+      nom: trimmedNom,
+      prenoms: prenoms.trim(),
+      matricule: matricule.trim(),
+      genre,
+      classe: classe.trim().toUpperCase(),
+      points: points === '' ? null : Math.max(0, parseInt(points, 10) || 0),
+    });
+  };
+
+  return (
+    <Modal open title="Ajouter un élève" onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>Annuler</button>
+          <button className="btn btn--accent" onClick={save} disabled={!nom.trim()}>Ajouter</button>
+        </>
+      }>
+      <div style={{ display: 'grid', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Field label="Nom *"><TextInput value={nom} upper onChange={setNom} /></Field>
+          <Field label="Prénoms"><TextInput value={prenoms} onChange={setPrenoms} /></Field>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <Field label="Matricule"><TextInput value={matricule} onChange={setMatricule} /></Field>
+          <Field label="Genre">
+            <SelectInput value={genre} options={[{ value: 'M', label: 'Garçon (M)' }, { value: 'F', label: 'Fille (F)' }]} onChange={(v) => setGenre(v as 'M' | 'F')} />
+          </Field>
+          <Field label="Classe">
+            <SelectInput value={classe} options={classes.map((c) => ({ value: c, label: c }))} onChange={setClasse} />
+          </Field>
+        </div>
+        <Field label="Points (optionnel)">
+          <TextInput value={points} onChange={setPoints} placeholder="Laisser vide si inconnu" />
+        </Field>
       </div>
     </Modal>
   );
