@@ -15,7 +15,6 @@ interface Props {
 }
 
 type Tab = 'config' | 'classes' | 'saisie';
-type SaisieView = 'liste' | 'recap';
 
 function emptyRow(): ClassRow {
   return { id: uuid(), name: '', centreId: null, inscritsGarcon: 0, inscritsFille: 0, presentsTotal: 0, presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0 };
@@ -37,7 +36,6 @@ function schoolYearOptions(current: string): string[] {
 export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [session, setSession] = useState<Session>(() => getSession(sessionId)!);
   const [tab, setTab] = useState<Tab>('config');
-  const [saisieView, setSaisieView] = useState<SaisieView>('liste');
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -270,24 +268,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               </div>
             )}
 
-            {/* Sub-view toggle when eleves are present */}
-            {hasEleves && (
-              <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--line)', marginBottom: 24 }}>
-                {(['liste', 'recap'] as const).map((v) => (
-                  <button key={v} onClick={() => setSaisieView(v)}
-                    style={{
-                      padding: '9px 18px 7px', background: 'none', border: 'none', cursor: 'pointer',
-                      borderBottom: '2px solid ' + (saisieView === v ? 'var(--ink)' : 'transparent'),
-                      marginBottom: -1,
-                      fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '0.07em', textTransform: 'uppercase',
-                      color: saisieView === v ? 'var(--ink)' : 'var(--ink-3)',
-                    }}>
-                    {v === 'liste' ? `Liste élèves (${session.eleves.length})` : 'Récapitulatif classes'}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* Content */}
             {session.classes.length === 0 && !hasEleves ? (
               <div style={{ textAlign: 'center', padding: '70px 0' }}>
@@ -295,10 +275,8 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Ajoutez d'abord des classes ou importez un fichier élèves.</p>
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
-            ) : hasEleves && saisieView === 'liste' ? (
+            ) : hasEleves ? (
               <EleveSaisie session={session} updateEleve={updateEleve} />
-            ) : hasEleves && saisieView === 'recap' ? (
-              <RecapTable session={session} isBac={isBac} />
             ) : (
               <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
@@ -508,63 +486,6 @@ function EleveRow({ eleve, index, onCommit }: {
         {isAjoure && <span className="mono" style={{ fontSize: 10, color: 'var(--orange-d)' }}>{eleve.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ'}</span>}
       </td>
     </tr>
-  );
-}
-
-/* ─────────────────── Read-only class recap (from eleves) ─────────────────── */
-
-function RecapTable({ session, isBac }: { session: Session; isBac: boolean }) {
-  const computed = session.classes.map((c) => computeRow(c, session.examType));
-  const totals = computeTotals(computed, session.examType);
-  return (
-    <div className="scroll-x" style={{ border: '1px solid var(--line)', borderRadius: 4 }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13, minWidth: isBac ? 820 : 680 }}>
-        <thead>
-          <tr style={{ background: 'var(--ink)' }}>
-            <ThG sticky>Classe</ThG>
-            <ThG c="gar">Inscr. G</ThG>
-            <ThG c="fil">Inscr. F</ThG>
-            {isBac ? (<><ThG c="gar">Prés. G</ThG><ThG c="fil">Prés. F</ThG></>) : (<ThG c="acc">Présents</ThG>)}
-            <ThG c="gar">Admis G</ThG>
-            <ThG c="fil">Admis F</ThG>
-            <ThG calc>Inscrits</ThG>
-            {isBac && <ThG calc>Absents</ThG>}
-            <ThG calc>Admis</ThG>
-            <ThG calc>Taux</ThG>
-          </tr>
-        </thead>
-        <tbody>
-          {computed.map((cp, i) => (
-            <tr key={cp.id} style={{ background: i % 2 ? 'var(--paper-2)' : 'var(--card)' }}>
-              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', borderRight: '1px solid var(--line)', borderBottom: '1px solid var(--line)', padding: '0 12px', height: 40, fontFamily: 'var(--display)', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
-                {cp.name || '—'}
-              </td>
-              <CalcCell>{cp.inscritsGarcon}</CalcCell>
-              <CalcCell>{cp.inscritsFille}</CalcCell>
-              {isBac ? (<><CalcCell>{cp.presentsGarcon}</CalcCell><CalcCell>{cp.presentsFille}</CalcCell></>) : (<CalcCell>{cp.presentsTotal}</CalcCell>)}
-              <CalcCell>{cp.admisGarcon}</CalcCell>
-              <CalcCell>{cp.admisFille}</CalcCell>
-              <CalcCell strong>{cp.inscritsTotal}</CalcCell>
-              {isBac && <CalcCell>{cp.absents}</CalcCell>}
-              <CalcCell strong>{cp.admisTotal}</CalcCell>
-              <CalcCell strong>{pct(cp.tauxTotal)}</CalcCell>
-            </tr>
-          ))}
-          <tr style={{ background: 'var(--paper-3)' }}>
-            <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--paper-3)', borderRight: '1px solid var(--line)', padding: '0 12px', height: 42, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '0.1em', fontWeight: 700 }}>TOTAL</td>
-            <TotCell>{totals.inscritsGarcon}</TotCell>
-            <TotCell>{totals.inscritsFille}</TotCell>
-            {isBac ? (<><TotCell>{totals.presentsGarcon}</TotCell><TotCell>{totals.presentsFille}</TotCell></>) : (<TotCell>{totals.presentsTotal}</TotCell>)}
-            <TotCell>{totals.admisGarcon}</TotCell>
-            <TotCell>{totals.admisFille}</TotCell>
-            <TotCell strong>{totals.inscritsTotal}</TotCell>
-            {isBac && <TotCell>{totals.absents}</TotCell>}
-            <TotCell strong>{totals.admisTotal}</TotCell>
-            <TotCell strong>{pct(totals.tauxTotal)}</TotCell>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   );
 }
 
