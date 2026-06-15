@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid';
 import type { Session, ClassRow, Centre, Eleve } from '../types';
 import { saveSession, getSession } from '../lib/storage';
 import { importFromFile } from '../lib/importFile';
-import { downloadTemplate, downloadElevesTemplate } from '../lib/exportExcel';
+import { downloadTemplate, downloadElevesTemplate, exportElevesResultats } from '../lib/exportExcel';
 import { computeRow, computeTotals, pct, applyElevesToClasses } from '../lib/calculations';
 import { validateRow, countErrors } from '../lib/validation';
 import { Masthead, Modal, Field, TextInput, SelectInput, SectionHead, Placeholder } from '../components/ui/design';
@@ -65,6 +65,12 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
   const deleteEleve = useCallback((id: string) => {
     const newEleves = session.eleves.filter((e) => e.id !== id);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    persist({ ...session, eleves: newEleves, classes: newClasses });
+  }, [session, persist]);
+
+  const updateEleveInfo = useCallback((id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => {
+    const newEleves = session.eleves.map((e) => e.id === id ? { ...e, ...updates } : e);
     const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
@@ -257,7 +263,10 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
                 {hasEleves && (
-                  <button className="btn btn--sm btn--danger" onClick={clearEleves}>Effacer élèves</button>
+                  <>
+                    <button className="btn btn--sm" onClick={() => exportElevesResultats(session)}>↓ Résultats Excel</button>
+                    <button className="btn btn--sm btn--danger" onClick={clearEleves}>Effacer élèves</button>
+                  </>
                 )}
               </div>
             </div>
@@ -281,7 +290,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
             ) : hasEleves ? (
-              <EleveSaisie session={session} updateEleve={updateEleve} deleteEleve={deleteEleve} />
+              <EleveSaisie session={session} updateEleve={updateEleve} deleteEleve={deleteEleve} updateEleveInfo={updateEleveInfo} />
             ) : (
               <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
@@ -329,24 +338,41 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 /* ─────────────────────────── Student list saisie ─────────────────────────── */
 
-function EleveSaisie({ session, updateEleve, deleteEleve }: {
+function EleveSaisie({ session, updateEleve, deleteEleve, updateEleveInfo }: {
   session: Session;
   updateEleve: (id: string, points: number | null) => void;
   deleteEleve: (id: string) => void;
+  updateEleveInfo: (id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
 }) {
+  const [search, setSearch] = useState('');
+  const [editingEleve, setEditingEleve] = useState<Eleve | null>(null);
   const { classes, eleves } = session;
 
+  const q = search.toLowerCase().trim();
+
   const groups = classes
-    .map((cls) => ({
-      cls,
-      rows: eleves.filter((e) => e.classe === cls.name).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
-    }))
+    .map((cls) => {
+      const all = eleves.filter((e) => e.classe === cls.name).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+      const rows = q ? all.filter((e) =>
+        e.nom.toLowerCase().includes(q) ||
+        e.prenoms.toLowerCase().includes(q) ||
+        e.matricule.toLowerCase().includes(q)
+      ) : all;
+      return { cls, rows, total: all.length };
+    })
     .filter((g) => g.rows.length > 0);
 
   const matchedClasses = new Set(classes.map((c) => c.name));
-  const unmatched = eleves.filter((e) => !matchedClasses.has(e.classe));
+  const unmatchedAll = eleves.filter((e) => !matchedClasses.has(e.classe));
+  const unmatched = q ? unmatchedAll.filter((e) =>
+    e.nom.toLowerCase().includes(q) ||
+    e.prenoms.toLowerCase().includes(q) ||
+    e.matricule.toLowerCase().includes(q)
+  ) : unmatchedAll;
 
-  if (groups.length === 0 && unmatched.length === 0) {
+  const totalMatches = groups.reduce((s, g) => s + g.rows.length, 0) + unmatched.length;
+
+  if (groups.length === 0 && unmatched.length === 0 && !q) {
     return (
       <div style={{ textAlign: 'center', padding: '50px 0' }}>
         <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun élève correspondant aux classes déclarées. Vérifiez les noms de classe.</p>
@@ -356,16 +382,33 @@ function EleveSaisie({ session, updateEleve, deleteEleve }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-      {groups.map(({ cls, rows }) => {
+      {/* Search bar */}
+      <div style={{ position: 'relative' }}>
+        <input
+          className="input"
+          placeholder="Rechercher par nom, prénoms ou matricule…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%', paddingLeft: 36 }}
+        />
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', fontSize: 14, pointerEvents: 'none' }}>⌕</span>
+        {q && (
+          <span className="mono" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--ink-3)' }}>
+            {totalMatches} résultat{totalMatches !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {groups.map(({ cls, rows, total }) => {
         const entered = rows.filter((e) => e.points !== null).length;
         const present = rows.filter((e) => e.points !== null && e.points > 0).length;
         const admis = rows.filter((e) => e.points !== null && e.points >= 180).length;
-        const progress = rows.length > 0 ? Math.round((entered / rows.length) * 100) : 0;
+        const progress = total > 0 ? Math.round((eleves.filter((e) => e.classe === cls.name && e.points !== null).length / total) * 100) : 0;
         return (
           <div key={cls.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '10px 0', borderBottom: '2px solid var(--ink)' }}>
               <span className="display" style={{ fontSize: 16, fontWeight: 700 }}>{cls.name}</span>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{rows.length} inscrits</span>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{q ? `${rows.length}/${total}` : `${total} inscrits`}</span>
               {entered > 0 && (
                 <>
                   <span className="mono" style={{ fontSize: 11, color: 'var(--ink-2)' }}>· {present} présents</span>
@@ -375,7 +418,7 @@ function EleveSaisie({ session, updateEleve, deleteEleve }: {
               <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>{progress}% saisi</span>
             </div>
             <div className="scroll-x" style={{ border: '1px solid var(--line)', borderTop: 'none', borderRadius: '0 0 3px 3px' }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 500 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 540 }}>
                 <thead>
                   <tr style={{ background: 'var(--ink)' }}>
                     <th style={eleveThStyle(40, true)}>G/F</th>
@@ -383,12 +426,12 @@ function EleveSaisie({ session, updateEleve, deleteEleve }: {
                     <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
                     <th style={eleveThStyle(90, false)}>Points</th>
                     <th style={eleveThStyle(85, true)}>Statut</th>
-                    <th style={{ ...eleveThStyle(40, true), borderRight: 'none' }} />
+                    <th style={{ ...eleveThStyle(72, true), borderRight: 'none' }} />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((eleve, i) => (
-                    <EleveRow key={eleve.id} eleve={eleve} index={i} onCommit={updateEleve} onDelete={deleteEleve} />
+                    <EleveRow key={eleve.id} eleve={eleve} index={i} onCommit={updateEleve} onDelete={deleteEleve} onEdit={setEditingEleve} />
                   ))}
                 </tbody>
               </table>
@@ -420,6 +463,16 @@ function EleveSaisie({ session, updateEleve, deleteEleve }: {
           </div>
         </div>
       )}
+
+      {/* Edit modal */}
+      {editingEleve && (
+        <EditEleveModal
+          eleve={editingEleve}
+          classes={session.classes.map((c) => c.name)}
+          onSave={(updates) => { updateEleveInfo(editingEleve.id, updates); setEditingEleve(null); }}
+          onClose={() => setEditingEleve(null)}
+        />
+      )}
     </div>
   );
 }
@@ -434,11 +487,12 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, onCommit, onDelete }: {
+function EleveRow({ eleve, index, onCommit, onDelete, onEdit }: {
   eleve: Eleve;
   index: number;
   onCommit: (id: string, points: number | null) => void;
   onDelete: (id: string) => void;
+  onEdit: (eleve: Eleve) => void;
 }) {
   const [raw, setRaw] = useState(() => eleve.points === null ? '' : String(eleve.points));
 
@@ -493,15 +547,64 @@ function EleveRow({ eleve, index, onCommit, onDelete }: {
         {isAbsent && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{eleve.genre === 'F' ? 'ABSENTE' : 'ABSENT'}</span>}
         {isAjoure && <span className="mono" style={{ fontSize: 10, color: 'var(--orange-d)' }}>{eleve.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ'}</span>}
       </td>
-      <td style={{ borderBottom: '1px solid var(--line-2)', width: 40, textAlign: 'center' }}>
+      <td style={{ borderBottom: '1px solid var(--line-2)', width: 72, textAlign: 'center' }}>
+        <button onClick={() => onEdit(eleve)} title="Modifier"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 13, padding: '0 5px' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-3)')}>
+          ✎
+        </button>
         <button onClick={() => onDelete(eleve.id)} title="Retirer cet élève"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 14, lineHeight: 1, padding: '0 4px' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 14, padding: '0 5px' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--orange-d)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-3)')}>
           ✕
         </button>
       </td>
     </tr>
+  );
+}
+
+/* ───────────────────────── Edit eleve modal ───────────────────────── */
+
+function EditEleveModal({ eleve, classes, onSave, onClose }: {
+  eleve: Eleve;
+  classes: string[];
+  onSave: (updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
+  onClose: () => void;
+}) {
+  const [nom, setNom] = useState(eleve.nom);
+  const [prenoms, setPrenoms] = useState(eleve.prenoms);
+  const [matricule, setMatricule] = useState(eleve.matricule);
+  const [genre, setGenre] = useState<'M' | 'F'>(eleve.genre);
+  const [classe, setClasse] = useState(eleve.classe);
+
+  const save = () => onSave({ nom: nom.trim().toUpperCase(), prenoms: prenoms.trim(), matricule: matricule.trim(), genre, classe: classe.trim().toUpperCase() });
+
+  return (
+    <Modal open title="Modifier l'élève" onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>Annuler</button>
+          <button className="btn btn--accent" onClick={save}>Enregistrer</button>
+        </>
+      }>
+      <div style={{ display: 'grid', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Field label="Nom"><TextInput value={nom} upper onChange={setNom} /></Field>
+          <Field label="Prénoms"><TextInput value={prenoms} onChange={setPrenoms} /></Field>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <Field label="Matricule"><TextInput value={matricule} onChange={setMatricule} /></Field>
+          <Field label="Genre">
+            <SelectInput value={genre} options={[{ value: 'M', label: 'Garçon (M)' }, { value: 'F', label: 'Fille (F)' }]} onChange={(v) => setGenre(v as 'M' | 'F')} />
+          </Field>
+          <Field label="Classe">
+            <SelectInput value={classe} options={[...classes.map((c) => ({ value: c, label: c })), ...(classes.includes(classe) ? [] : [{ value: classe, label: classe }])]} onChange={setClasse} />
+          </Field>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

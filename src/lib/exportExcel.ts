@@ -2,6 +2,25 @@ import * as XLSX from 'xlsx';
 import type { Session } from '../types';
 import { computeRow, computeTotals, pct } from './calculations';
 
+export function exportElevesResultats(session: Session) {
+  const headers = ['N°', 'Matricule', 'Nom', 'Prénoms', 'Genre', 'Classe', 'Points', 'Statut'];
+  const sorted = [...session.eleves].sort((a, b) => {
+    const cls = a.classe.localeCompare(b.classe, 'fr');
+    return cls !== 0 ? cls : a.nom.localeCompare(b.nom, 'fr');
+  });
+  const rows = sorted.map((e, i) => {
+    const statut = e.points === null ? ''
+      : e.points >= 180 ? (e.genre === 'F' ? 'ADMISE' : 'ADMIS')
+      : e.points === 0 ? (e.genre === 'F' ? 'ABSENTE' : 'ABSENT')
+      : (e.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ');
+    return [i + 1, e.matricule || '', e.nom, e.prenoms, e.genre, e.classe, e.points ?? '', statut];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Résultats Élèves');
+  XLSX.writeFile(wb, `Resultats_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.xlsx`);
+}
+
 export function exportExcel(session: Session) {
   const isBac = session.examType === 'BAC';
   const computed = session.classes.map((c) => computeRow(c, session.examType));
