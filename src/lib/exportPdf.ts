@@ -40,7 +40,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
     const availableH = 297 - (headerY + 26) - 8;
     const totalRows = admis.length + 1;
     const rowH = availableH / totalRows;
-    tableSize = Math.max(8.5, Math.min(26, rowH / 0.62));
+    tableSize = Math.max(8.5, Math.min(20, rowH / 0.62));
     cellPad = Math.max(2, tableSize * 0.11);
   } else {
     tableSize = 8.5;
@@ -59,17 +59,26 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
     startY: headerY + 26,
     head: [['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
-    styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center', overflow: isGrand ? 'ellipsize' : 'linebreak' },
+    ...(isGrand ? { tableWidth: pageW - 28 } : {}),
+    styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
     headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
     bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
     alternateRowStyles: { fillColor: [248, 248, 248] },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 12 },
-      1: { halign: 'center', cellWidth: 35 },
-      2: { halign: 'left', fontStyle: 'bold' },
-      3: { halign: 'left' },
-      4: { halign: 'center', cellWidth: 18 },
-    },
+    columnStyles: isGrand
+      ? {
+          0: { halign: 'center' },
+          1: { halign: 'center' },
+          2: { halign: 'left', fontStyle: 'bold' },
+          3: { halign: 'left' },
+          4: { halign: 'center' },
+        }
+      : {
+          0: { halign: 'center', cellWidth: 12 },
+          1: { halign: 'center', cellWidth: 35 },
+          2: { halign: 'left', fontStyle: 'bold' },
+          3: { halign: 'left' },
+          4: { halign: 'center', cellWidth: 18 },
+        },
   });
 
   const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
