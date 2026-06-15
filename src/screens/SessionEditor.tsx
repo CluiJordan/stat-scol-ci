@@ -40,6 +40,8 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [pendingDeleteCentreId, setPendingDeleteCentreId] = useState<string | null>(null);
+  const [pendingDeleteClassId, setPendingDeleteClassId] = useState<string | null>(null);
+  const [showClearEleves, setShowClearEleves] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -85,8 +87,13 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   }, [session, persist]);
 
   const clearEleves = () => {
-    if (!window.confirm(`Supprimer les ${session.eleves.length} élèves importés ? Les totaux retourneront à la saisie manuelle.`)) return;
-    persist({ ...session, eleves: [] });
+    const resetClasses = session.classes.map((c) => ({
+      ...c, inscritsGarcon: 0, inscritsFille: 0,
+      presentsTotal: 0, presentsGarcon: 0, presentsFille: 0,
+      admisGarcon: 0, admisFille: 0,
+    }));
+    persist({ ...session, eleves: [], classes: resetClasses });
+    setShowClearEleves(false);
   };
 
   async function processFile(file: File) {
@@ -230,7 +237,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                   <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
                     <strong style={{ color: 'var(--green-d)' }}>{session.eleves.length} élèves importés</strong> — les stats sont calculées automatiquement depuis leurs points.
                   </span>
-                  <button className="btn btn--ghost btn--sm btn--danger" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} onClick={clearEleves}>Supprimer les élèves</button>
+                  <button className="btn btn--ghost btn--sm btn--danger" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} onClick={() => setShowClearEleves(true)}>Supprimer les élèves</button>
                 </div>
               )}
 
@@ -250,7 +257,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                           {centreOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       )}
-                      <button className="btn btn--ghost btn--sm btn--danger" onClick={() => deleteClass(cls.id)}>✕</button>
+                      <button className="btn btn--ghost btn--sm btn--danger" onClick={() => setPendingDeleteClassId(cls.id)}>✕</button>
                     </div>
                   );
                 })}
@@ -274,7 +281,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 {hasEleves && (
                   <>
                     <button className="btn btn--sm" onClick={() => exportElevesResultats(session)}>↓ Résultats Excel</button>
-                    <button className="btn btn--sm btn--danger" onClick={clearEleves}>Effacer élèves</button>
+                    <button className="btn btn--sm btn--danger" onClick={() => setShowClearEleves(true)}>Effacer élèves</button>
                   </>
                 )}
               </div>
@@ -308,22 +315,32 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
       </div>
 
       {/* Confirm delete college */}
-      {pendingDeleteCentreId && (() => {
-        const centre = session.centres.find((c) => c.id === pendingDeleteCentreId);
-        return (
-          <Modal open title={`Supprimer « ${centre?.name ?? 'ce collège'} » ?`} onClose={() => setPendingDeleteCentreId(null)}
-            footer={
-              <>
-                <button className="btn" onClick={() => setPendingDeleteCentreId(null)}>Annuler</button>
-                <button className="btn btn--accent btn--danger" onClick={() => { deleteCentre(pendingDeleteCentreId); setPendingDeleteCentreId(null); }}>Supprimer</button>
-              </>
-            }>
-            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
-              Les classes rattachées à ce collège seront dissociées mais pas supprimées.
-            </p>
-          </Modal>
-        );
-      })()}
+      <ConfirmModal
+        open={!!pendingDeleteCentreId}
+        title={`Supprimer « ${session.centres.find((c) => c.id === pendingDeleteCentreId)?.name ?? 'ce collège'} » ?`}
+        message="Les classes rattachées à ce collège seront dissociées mais pas supprimées."
+        onConfirm={() => { deleteCentre(pendingDeleteCentreId!); setPendingDeleteCentreId(null); }}
+        onClose={() => setPendingDeleteCentreId(null)}
+      />
+
+      {/* Confirm delete class */}
+      <ConfirmModal
+        open={!!pendingDeleteClassId}
+        title={`Supprimer la classe « ${session.classes.find((c) => c.id === pendingDeleteClassId)?.name || 'Sans nom'} » ?`}
+        message="Les données saisies pour cette classe seront définitivement perdues."
+        onConfirm={() => { deleteClass(pendingDeleteClassId!); setPendingDeleteClassId(null); }}
+        onClose={() => setPendingDeleteClassId(null)}
+      />
+
+      {/* Confirm clear eleves */}
+      <ConfirmModal
+        open={showClearEleves}
+        title={`Effacer les ${session.eleves.length} élèves importés ?`}
+        message="Toutes les notes et les statistiques calculées depuis les élèves seront supprimées. La saisie manuelle redeviendra disponible."
+        confirmLabel="Effacer les élèves"
+        onConfirm={clearEleves}
+        onClose={() => setShowClearEleves(false)}
+      />
 
       {/* Import modal */}
       <Modal open={showImport} title="Importer des données" onClose={() => { setShowImport(false); setImportErrors([]); }}
@@ -526,19 +543,14 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
       )}
 
       {/* Confirm delete eleve */}
-      {pendingDeleteEleve && (
-        <Modal open title="Retirer cet élève ?" onClose={() => setPendingDeleteEleve(null)}
-          footer={
-            <>
-              <button className="btn" onClick={() => setPendingDeleteEleve(null)}>Annuler</button>
-              <button className="btn btn--accent btn--danger" onClick={() => { deleteEleve(pendingDeleteEleve.id); setPendingDeleteEleve(null); }}>Retirer</button>
-            </>
-          }>
-          <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
-            Voulez-vous retirer <strong>{pendingDeleteEleve.nom} {pendingDeleteEleve.prenoms}</strong> de la liste ? Cette action est irréversible.
-          </p>
-        </Modal>
-      )}
+      <ConfirmModal
+        open={!!pendingDeleteEleve}
+        title="Retirer cet élève ?"
+        message={<>Voulez-vous retirer <strong>{pendingDeleteEleve?.nom} {pendingDeleteEleve?.prenoms}</strong> de la liste ? Cette action est irréversible.</>}
+        confirmLabel="Retirer"
+        onConfirm={() => { deleteEleve(pendingDeleteEleve!.id); setPendingDeleteEleve(null); }}
+        onClose={() => setPendingDeleteEleve(null)}
+      />
     </div>
   );
 }
@@ -858,4 +870,39 @@ function CalcCell({ children, strong }: { children: React.ReactNode; strong?: bo
 
 function TotCell({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
   return <td style={{ height: 42, textAlign: 'center', borderRight: '1px solid var(--line)', fontFamily: 'var(--mono)', fontSize: 12.5, fontWeight: 700, color: strong ? 'var(--ink)' : 'var(--ink-2)', whiteSpace: 'nowrap', padding: '0 8px' }}>{children}</td>;
+}
+
+/* ─────────────────────────── Confirm modal ─────────────────────────── */
+
+function ConfirmModal({ open, title, message, confirmLabel = 'Supprimer', onConfirm, onClose }: {
+  open: boolean;
+  title: string;
+  message: React.ReactNode;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const [checked, setChecked] = useState(false);
+  useEffect(() => { if (!open) setChecked(false); }, [open]);
+
+  return (
+    <Modal open={open} title={title} onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>Annuler</button>
+          <button className="btn btn--accent btn--danger" disabled={!checked} style={{ opacity: checked ? 1 : 0.4, cursor: checked ? 'pointer' : 'not-allowed' }} onClick={onConfirm}>
+            {confirmLabel}
+          </button>
+        </>
+      }>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>{message}</p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', padding: '10px 12px', background: 'var(--paper-2)', borderRadius: 4, border: '1px solid var(--line)' }}>
+          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
+            style={{ width: 15, height: 15, accentColor: 'var(--orange-d)', cursor: 'pointer', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Je confirme cette suppression</span>
+        </label>
+      </div>
+    </Modal>
+  );
 }
