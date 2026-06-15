@@ -80,6 +80,13 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
+  const deleteEleves = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    const newEleves = session.eleves.filter((e) => !idSet.has(e.id));
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    persist({ ...session, eleves: newEleves, classes: newClasses });
+  }, [session, persist]);
+
   const updateEleveInfo = useCallback((id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => {
     const newEleves = session.eleves.map((e) => e.id === id ? { ...e, ...updates } : e);
     const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
@@ -306,7 +313,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
             ) : hasEleves ? (
-              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} updateEleveInfo={updateEleveInfo} />
+              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} deleteEleves={deleteEleves} updateEleveInfo={updateEleveInfo} />
             ) : (
               <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
@@ -390,17 +397,32 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 /* ─────────────────────────── Student list saisie ─────────────────────────── */
 
-function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveInfo }: {
+function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves, updateEleveInfo }: {
   session: Session;
   addEleve: (eleve: Omit<Eleve, 'id'>) => void;
   updateEleve: (id: string, points: number | null) => void;
   deleteEleve: (id: string) => void;
+  deleteEleves: (ids: string[]) => void;
   updateEleveInfo: (id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
 }) {
   const [search, setSearch] = useState('');
   const [editingEleve, setEditingEleve] = useState<Eleve | null>(null);
   const [pendingDeleteEleve, setPendingDeleteEleve] = useState<Eleve | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+
+  const toggleSelect = (id: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const toggleGroupAll = (ids: string[]) => setSelected((prev) => {
+    const next = new Set(prev);
+    const allSelected = ids.every((id) => next.has(id));
+    ids.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+    return next;
+  });
   const { classes, eleves } = session;
 
   const q = search.toLowerCase().trim();
@@ -457,6 +479,17 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
         <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
       </div>
 
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px', background: 'var(--orange-w)', border: '1px solid var(--orange-d)', borderRadius: 4 }}>
+          <span className="mono" style={{ fontSize: 12, color: 'var(--orange-d)', fontWeight: 700 }}>{selected.size} élève{selected.size > 1 ? 's' : ''} sélectionné{selected.size > 1 ? 's' : ''}</span>
+          <button className="btn btn--sm" onClick={() => setSelected(new Set())}>Désélectionner</button>
+          <button className="btn btn--sm btn--danger" style={{ marginLeft: 'auto' }} onClick={() => setShowBulkDelete(true)}>
+            Retirer la sélection ({selected.size})
+          </button>
+        </div>
+      )}
+
       {groups.map(({ cls, rows, total }) => {
         const entered = rows.filter((e) => e.points !== null).length;
         const present = rows.filter((e) => e.points !== null && e.points > 0).length;
@@ -477,9 +510,18 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
               <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>{progress}% saisi</span>
             </div>
             <div className="scroll-x" style={{ border: '1px solid var(--line)', borderTop: 'none', borderRadius: '0 0 3px 3px' }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 540 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 576 }}>
                 <thead>
                   <tr style={{ background: 'var(--ink)' }}>
+                    <th style={{ ...eleveThStyle(36, true), padding: '9px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={rows.length > 0 && rows.every((e) => selected.has(e.id))}
+                        ref={(el) => { if (el) el.indeterminate = rows.some((e) => selected.has(e.id)) && !rows.every((e) => selected.has(e.id)); }}
+                        onChange={() => toggleGroupAll(rows.map((e) => e.id))}
+                        style={{ cursor: 'pointer', accentColor: 'var(--orange-d)' }}
+                      />
+                    </th>
                     <th style={eleveThStyle(40, true)}>G/F</th>
                     <th style={eleveThStyle(120, true)}>Matricule</th>
                     <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
@@ -490,7 +532,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
                 </thead>
                 <tbody>
                   {rows.map((eleve, i) => (
-                    <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} />
+                    <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} />
                   ))}
                 </tbody>
               </table>
@@ -551,6 +593,16 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, updateEleveI
         onConfirm={() => { deleteEleve(pendingDeleteEleve!.id); setPendingDeleteEleve(null); }}
         onClose={() => setPendingDeleteEleve(null)}
       />
+
+      {/* Confirm bulk delete */}
+      <ConfirmModal
+        open={showBulkDelete}
+        title={`Retirer ${selected.size} élève${selected.size > 1 ? 's' : ''} ?`}
+        message={`Voulez-vous retirer les ${selected.size} élève${selected.size > 1 ? 's' : ''} sélectionné${selected.size > 1 ? 's' : ''} de la liste ? Cette action est irréversible.`}
+        confirmLabel={`Retirer ${selected.size} élève${selected.size > 1 ? 's' : ''}`}
+        onConfirm={() => { deleteEleves([...selected]); setSelected(new Set()); setShowBulkDelete(false); }}
+        onClose={() => setShowBulkDelete(false)}
+      />
     </div>
   );
 }
@@ -565,13 +617,15 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
+function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelected, onToggle }: {
   eleve: Eleve;
   index: number;
   examType: import('../types').ExamType;
   onCommit: (id: string, points: number | null) => void;
   onDelete: (eleve: Eleve) => void;
   onEdit: (eleve: Eleve) => void;
+  isSelected: boolean;
+  onToggle: () => void;
 }) {
   const [raw, setRaw] = useState(() => eleve.points === null ? '' : String(eleve.points));
 
@@ -604,7 +658,10 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
   const cell: React.CSSProperties = { borderRight: '1px solid var(--line-2)', borderBottom: '1px solid var(--line-2)' };
 
   return (
-    <tr style={{ background: index % 2 ? 'var(--paper-2)' : 'var(--card)' }}>
+    <tr style={{ background: isSelected ? 'var(--orange-w)' : index % 2 ? 'var(--paper-2)' : 'var(--card)' }}>
+      <td style={{ ...cell, width: 36, textAlign: 'center', height: 40 }}>
+        <input type="checkbox" checked={isSelected} onChange={onToggle} style={{ cursor: 'pointer', accentColor: 'var(--orange-d)' }} />
+      </td>
       <td style={{ ...cell, width: 40, textAlign: 'center', height: 40 }}>
         <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: eleve.genre === 'M' ? 'var(--gar)' : 'var(--fil)' }} title={eleve.genre === 'M' ? 'Garçon' : 'Fille'} />
       </td>
@@ -882,27 +939,15 @@ function ConfirmModal({ open, title, message, confirmLabel = 'Supprimer', onConf
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const [checked, setChecked] = useState(false);
-  useEffect(() => { if (!open) setChecked(false); }, [open]);
-
   return (
     <Modal open={open} title={title} onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose}>Annuler</button>
-          <button className="btn btn--accent btn--danger" disabled={!checked} style={{ opacity: checked ? 1 : 0.4, cursor: checked ? 'pointer' : 'not-allowed' }} onClick={onConfirm}>
-            {confirmLabel}
-          </button>
+          <button className="btn btn--accent btn--danger" onClick={onConfirm}>{confirmLabel}</button>
         </>
       }>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>{message}</p>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', padding: '10px 12px', background: 'var(--paper-2)', borderRadius: 4, border: '1px solid var(--line)' }}>
-          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
-            style={{ width: 15, height: 15, accentColor: 'var(--orange-d)', cursor: 'pointer', flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Je confirme cette suppression</span>
-        </label>
-      </div>
+      <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>{message}</p>
     </Modal>
   );
 }
