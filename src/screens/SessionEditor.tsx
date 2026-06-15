@@ -558,9 +558,17 @@ function EleveRow({ eleve, index, onCommit, onDelete, onEdit }: {
         <input
           type="number" min={0} max={400}
           value={raw} placeholder="—"
+          data-points-input
           onChange={(e) => setRaw(e.target.value)}
           onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Enter') { commit(); (e.target as HTMLInputElement).blur(); } }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              commit();
+              const all = Array.from(document.querySelectorAll<HTMLInputElement>('[data-points-input]'));
+              const next = all[all.indexOf(e.target as HTMLInputElement) + 1];
+              if (next) next.focus(); else (e.target as HTMLInputElement).blur();
+            }
+          }}
           style={{
             width: '100%', height: 40, textAlign: 'center', border: 'none',
             background: isAdmis ? 'var(--green-w)' : isAbsent ? 'var(--paper-3)' : 'transparent',
