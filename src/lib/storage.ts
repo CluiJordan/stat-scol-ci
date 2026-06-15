@@ -1,11 +1,12 @@
-import type { Session } from '../types';
+import type { Eleve, Session } from '../types';
 
 const KEY = 'stat_scol_sessions';
 
 export function getSessions(): Session[] {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : [];
+    const sessions: Array<Session & { eleves?: Eleve[] }> = raw ? JSON.parse(raw) : [];
+    return sessions.map((s) => ({ ...s, eleves: s.eleves ?? [] }));
   } catch {
     return [];
   }

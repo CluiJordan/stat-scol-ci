@@ -1,4 +1,31 @@
-import type { ClassRow, ComputedRow, ComputedTotals, ExamType } from '../types';
+import type { ClassRow, ComputedRow, ComputedTotals, Eleve, ExamType } from '../types';
+
+/** Dérive les stats de chaque ClassRow depuis les points des élèves importés. */
+export function applyElevesToClasses(
+  classes: ClassRow[],
+  eleves: Eleve[],
+  examType: ExamType,
+): ClassRow[] {
+  if (eleves.length === 0) return classes;
+  return classes.map((cls) => {
+    const ce = eleves.filter((e) => e.classe === cls.name);
+    if (ce.length === 0) return cls;
+    const g = ce.filter((e) => e.genre === 'M');
+    const f = ce.filter((e) => e.genre === 'F');
+    const present = (e: Eleve) => e.points !== null && e.points > 0;
+    const admis = (e: Eleve) => e.points !== null && e.points >= 180;
+    return {
+      ...cls,
+      inscritsGarcon: g.length,
+      inscritsFille: f.length,
+      presentsTotal: examType === 'BEPC' ? ce.filter(present).length : 0,
+      presentsGarcon: examType === 'BAC' ? g.filter(present).length : 0,
+      presentsFille: examType === 'BAC' ? f.filter(present).length : 0,
+      admisGarcon: g.filter(admis).length,
+      admisFille: f.filter(admis).length,
+    };
+  });
+}
 
 /** Borne une valeur dans [min, max]. */
 export function clamp(value: number, min: number, max: number): number {

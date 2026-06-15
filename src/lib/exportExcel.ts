@@ -39,6 +39,19 @@ export function exportExcel(session: Session) {
   XLSX.writeFile(wb, `Statistiques_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.xlsx`);
 }
 
+export function downloadElevesTemplate() {
+  const headers = ['Matricule', 'Nom', 'Prenoms', 'Genre', 'Classe'];
+  const examples = [
+    ['CI-20250001', 'KOUASSI', 'Aya Marie', 'F', '3EME A'],
+    ['CI-20250002', 'BAMBA', 'Ibrahim Soro', 'M', '3EME A'],
+    ['CI-20250003', 'KONAN', 'Jean-Paul', 'M', '3EME B'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Modèle Élèves');
+  XLSX.writeFile(wb, 'Modele_Import_Eleves.xlsx');
+}
+
 export function downloadTemplate(examType: 'BEPC' | 'BAC') {
   const headers = examType === 'BAC'
     ? ['Classe & Série', 'Inscrits Garçon', 'Inscrits Fille', 'Présents Garçon', 'Présents Fille', 'Admis Garçon', 'Admis Fille']

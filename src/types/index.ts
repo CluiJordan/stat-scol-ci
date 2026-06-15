@@ -5,6 +5,16 @@ export interface Centre {
   name: string;
 }
 
+export interface Eleve {
+  id: string;
+  matricule: string;
+  nom: string;
+  prenoms: string;
+  genre: 'M' | 'F';
+  classe: string;
+  points: number | null;
+}
+
 export interface ClassRow {
   id: string;
   name: string;
@@ -31,6 +41,7 @@ export interface Session {
   examSession: string;
   centres: Centre[];
   classes: ClassRow[];
+  eleves: Eleve[];
   createdAt: string;
   updatedAt: string;
 }

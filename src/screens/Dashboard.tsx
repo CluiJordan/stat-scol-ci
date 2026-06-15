@@ -55,6 +55,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
       examSession: form.examSession,
       centres: [],
       classes: [],
+      eleves: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
