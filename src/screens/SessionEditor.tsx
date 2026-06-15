@@ -503,7 +503,7 @@ function EleveRow({ eleve, index, onCommit }: {
         />
       </td>
       <td style={{ ...cell, width: 85, textAlign: 'center', borderRight: 'none' }}>
-        {isAdmis && <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: 'var(--green-d)' }}>{eleve.genre === 'F' ? '✓ ADMISE' : '✓ ADMIS'}</span>}
+        {isAdmis && <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: 'var(--green-d)' }}>{eleve.genre === 'F' ? 'ADMISE' : 'ADMIS'}</span>}
         {isAbsent && <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{eleve.genre === 'F' ? 'ABSENTE' : 'ABSENT'}</span>}
         {isAjoure && <span className="mono" style={{ fontSize: 10, color: 'var(--orange-d)' }}>{eleve.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ'}</span>}
       </td>
