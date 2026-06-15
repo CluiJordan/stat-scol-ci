@@ -244,7 +244,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                   <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
                     <strong style={{ color: 'var(--green-d)' }}>{session.eleves.length} élèves importés</strong> — les stats sont calculées automatiquement depuis leurs points.
                   </span>
-                  <button className="btn btn--ghost btn--sm btn--danger" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} onClick={() => setShowClearEleves(true)}>Supprimer les élèves</button>
                 </div>
               )}
 
@@ -286,10 +285,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
                 {hasEleves && (
-                  <>
-                    <button className="btn btn--sm" onClick={() => exportElevesResultats(session)}>↓ Résultats Excel</button>
-                    <button className="btn btn--sm btn--danger" onClick={() => setShowClearEleves(true)}>Effacer élèves</button>
-                  </>
+                  <button className="btn btn--sm" onClick={() => exportElevesResultats(session)}>↓ Résultats Excel</button>
                 )}
               </div>
             </div>
@@ -313,7 +309,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
                 <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
               </div>
             ) : hasEleves ? (
-              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} deleteEleves={deleteEleves} updateEleveInfo={updateEleveInfo} />
+              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} deleteEleves={deleteEleves} onClearEleves={() => setShowClearEleves(true)} updateEleveInfo={updateEleveInfo} />
             ) : (
               <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
             )}
@@ -397,12 +393,13 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 /* ─────────────────────────── Student list saisie ─────────────────────────── */
 
-function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves, updateEleveInfo }: {
+function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves, onClearEleves, updateEleveInfo }: {
   session: Session;
   addEleve: (eleve: Omit<Eleve, 'id'>) => void;
   updateEleve: (id: string, points: number | null) => void;
   deleteEleve: (id: string) => void;
   deleteEleves: (ids: string[]) => void;
+  onClearEleves: () => void;
   updateEleveInfo: (id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
 }) {
   const [search, setSearch] = useState('');
@@ -459,7 +456,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-      {/* Search bar + add button */}
+      {/* Search bar + actions */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <input
@@ -477,18 +474,16 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
           )}
         </div>
         <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
-      </div>
-
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px', background: 'var(--orange-w)', border: '1px solid var(--orange-d)', borderRadius: 4 }}>
-          <span className="mono" style={{ fontSize: 12, color: 'var(--orange-d)', fontWeight: 700 }}>{selected.size} élève{selected.size > 1 ? 's' : ''} sélectionné{selected.size > 1 ? 's' : ''}</span>
-          <button className="btn btn--sm" onClick={() => setSelected(new Set())}>Désélectionner</button>
-          <button className="btn btn--sm btn--danger" style={{ marginLeft: 'auto' }} onClick={() => setShowBulkDelete(true)}>
-            Retirer la sélection ({selected.size})
+        {selected.size > 0 ? (
+          <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowBulkDelete(true)}>
+            Effacer la sélection ({selected.size})
           </button>
-        </div>
-      )}
+        ) : (
+          <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={onClearEleves}>
+            Effacer les élèves
+          </button>
+        )}
+      </div>
 
       {groups.map(({ cls, rows, total }) => {
         const entered = rows.filter((e) => e.points !== null).length;
