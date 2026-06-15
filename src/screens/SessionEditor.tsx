@@ -570,23 +570,22 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
   const threshold = admisThreshold(examType);
   const max = maxPoints(examType);
 
-  const sanitize = (val: string): number | null => {
-    if (val.trim() === '') return null;
-    const normalized = val.trim().replace(/,/g, '.').replace(/[^0-9.]/g, '');
-    const n = parseFloat(normalized);
-    if (isNaN(n)) return null;
-    return Math.min(max, Math.max(0, Math.floor(n)));
+  const isValid = (val: string): boolean => {
+    if (val.trim() === '') return true;
+    if (!/^\d+$/.test(val.trim())) return false;
+    const n = parseInt(val.trim(), 10);
+    return n >= 0 && n <= max;
   };
 
-  const pts = sanitize(raw);
+  const hasError = !isValid(raw);
+  const pts = hasError ? null : (raw.trim() === '' ? null : parseInt(raw.trim(), 10));
   const isAdmis = pts !== null && pts >= threshold;
   const isAbsent = pts === 0;
   const isAjoure = pts !== null && pts > 0 && pts < threshold;
 
   const commit = () => {
-    const p = sanitize(raw);
-    if (p !== null) setRaw(String(p));
-    onCommit(eleve.id, p);
+    if (hasError) return;
+    onCommit(eleve.id, pts);
   };
 
   const cell: React.CSSProperties = { borderRight: '1px solid var(--line-2)', borderBottom: '1px solid var(--line-2)' };
@@ -612,6 +611,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
+              if (hasError) return;
               commit();
               const all = Array.from(document.querySelectorAll<HTMLInputElement>('[data-points-input]'));
               const next = all[all.indexOf(e.target as HTMLInputElement) + 1];
@@ -620,12 +620,12 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit }: {
           }}
           style={{
             width: '100%', height: 40, textAlign: 'center', border: 'none',
-            background: isAdmis ? 'var(--green-w)' : isAbsent ? 'var(--paper-3)' : 'transparent',
+            background: hasError ? 'var(--orange-w)' : isAdmis ? 'var(--green-w)' : isAbsent ? 'var(--paper-3)' : 'transparent',
             fontFamily: 'var(--mono)', fontSize: 13,
             fontWeight: isAdmis ? 700 : 400,
-            color: isAdmis ? 'var(--green-d)' : 'var(--ink)',
+            color: hasError ? 'var(--orange-d)' : isAdmis ? 'var(--green-d)' : 'var(--ink)',
             outline: 'none',
-            boxShadow: isAdmis ? 'inset 0 0 0 1.5px var(--green-d)' : 'none',
+            boxShadow: hasError ? 'inset 0 0 0 1.5px var(--orange-d)' : isAdmis ? 'inset 0 0 0 1.5px var(--green-d)' : 'none',
           }}
         />
       </td>
