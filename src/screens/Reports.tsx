@@ -296,7 +296,6 @@ function BEPCParEtabTable({ session, computed }: { session: Session; computed: R
   });
   const unassigned = computed.filter((r) => !r.centreId || !session.centres.find((c) => c.id === r.centreId));
   if (unassigned.length > 0) groups.push({ centre: null, rows: unassigned });
-  const allTotals = computeTotals(computed, 'BEPC');
 
   return (
     <div>
@@ -329,13 +328,6 @@ function BEPCParEtabTable({ session, computed }: { session: Session; computed: R
           </div>
         );
       })}
-      <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860, borderTop: '2px solid var(--ink)' }}>
-        <tbody><tr>
-          <Td left total>TOTAL GÉNÉRAL</Td><Td total>{allTotals.inscritsTotal}</Td><Td total>{allTotals.presentsTotal}</Td><Td total>{allTotals.admisTotal}</Td><Td total>{pct(allTotals.tauxTotal)}</Td>
-          <Td c="gar" total>{allTotals.inscritsGarcon}</Td><Td c="gar" total>{allTotals.admisGarcon}</Td><Td c="gar" total>{pct(allTotals.tauxGarcon)}</Td>
-          <Td c="fil" total>{allTotals.inscritsFille}</Td><Td c="fil" total>{allTotals.admisFille}</Td><Td c="fil" total>{pct(allTotals.tauxFille)}</Td>
-        </tr></tbody>
-      </table>
     </div>
   );
 }

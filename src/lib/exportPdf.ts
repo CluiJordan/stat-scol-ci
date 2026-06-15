@@ -18,8 +18,8 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
   const isGrand = format === 'grand';
   const titleSize = isGrand ? 16 : 13;
   const subSize = isGrand ? 10 : 8.5;
-  const tableSize = isGrand ? 11 : 8.5;
-  const cellPad = isGrand ? 4 : 2.5;
+  let tableSize: number;
+  let cellPad: number;
 
   doc.setFontSize(titleSize);
   doc.setFont('helvetica', 'bold');
@@ -32,6 +32,18 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
 
   doc.setFont('helvetica', 'italic');
   doc.text(`Total : ${admis.length} admis`, pageW / 2, headerY + 21, { align: 'center' });
+
+  if (isGrand) {
+    // Fill available vertical space so the font is as large as possible
+    const availableH = 297 - (headerY + 26) - 8;
+    const totalRows = admis.length + 1;
+    const rowH = availableH / totalRows;
+    tableSize = Math.max(8.5, Math.min(26, rowH / 0.62));
+    cellPad = Math.max(2, tableSize * 0.11);
+  } else {
+    tableSize = 8.5;
+    cellPad = 2.5;
+  }
 
   const body = admis.map((e, i) => [
     String(i + 1).padStart(3, '0'),
@@ -68,8 +80,8 @@ function drawHeader(doc: jsPDF, session: Session): number {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
 
-  // Wrap long ministère name — 160 mm leaves room for the right-side ANNEE SCOLAIRE block
-  const ministereLines = doc.splitTextToSize(session.ministere || '', 160);
+  // Wrap at ~90 mm so text fills 2-3 lines; right side holds the ANNEE SCOLAIRE block
+  const ministereLines = doc.splitTextToSize(session.ministere || '', 90);
   const lineH = 3.5; // mm per line at fontSize 8
 
   doc.text(ministereLines, 14, 12);
@@ -215,21 +227,6 @@ export function exportBEPCParEtablissement(session: Session) {
     });
 
     currentY = (doc as any).lastAutoTable.finalY + 8;
-  });
-
-  const allTotals = computeTotals(allComputed, 'BEPC');
-  autoTable(doc, {
-    startY: currentY,
-    body: [[
-      'TOTAL GÉNÉRAL',
-      allTotals.inscritsTotal, allTotals.presentsTotal, allTotals.admisTotal, pct(allTotals.tauxTotal),
-      allTotals.inscritsGarcon, allTotals.admisGarcon, pct(allTotals.tauxGarcon),
-      allTotals.inscritsFille, allTotals.admisFille, pct(allTotals.tauxFille),
-    ]],
-    styles: { fontSize: 8, cellPadding: 2, halign: 'center', fontStyle: 'bold' },
-    bodyStyles: { lineWidth: 0.3, lineColor: [0, 0, 0] },
-    columnStyles: { 0: { halign: 'left' } },
-    didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], 0),
   });
 
   doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}.pdf`);
