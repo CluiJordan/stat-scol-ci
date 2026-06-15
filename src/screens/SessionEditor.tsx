@@ -38,6 +38,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const [tab, setTab] = useState<Tab>('config');
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -87,19 +88,13 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
     persist({ ...session, eleves: [] });
   };
 
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
+  async function processFile(file: File) {
     const result = await importFromFile(file, session.examType);
     setImportErrors(result.errors);
 
     if (result.eleves.length > 0) {
-      // Merge students — skip duplicates by matricule
       const existingMatricules = new Set(session.eleves.filter((e) => e.matricule).map((e) => e.matricule));
       const toAdd = result.eleves.filter((e) => !e.matricule || !existingMatricules.has(e.matricule));
-
-      // Auto-create class rows for new unique classe names
       const knownClasses = new Set(session.classes.map((c) => c.name));
       const newClassNames = [...new Set(toAdd.map((e) => e.classe))].filter((n) => n && !knownClasses.has(n));
       const newClassRows: ClassRow[] = newClassNames.map((name) => ({
@@ -107,7 +102,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         inscritsGarcon: 0, inscritsFille: 0, presentsTotal: 0,
         presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0,
       }));
-
       const allEleves = [...session.eleves, ...toAdd];
       const allClasses = applyElevesToClasses([...session.classes, ...newClassRows], allEleves, session.examType);
       persist({ ...session, eleves: allEleves, classes: allClasses });
@@ -116,6 +110,13 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
       persist({ ...session, classes: [...session.classes, ...result.rows] });
       if (result.errors.length === 0) setShowImport(false);
     }
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    await processFile(file);
   }
 
   const isBac = session.examType === 'BAC';
@@ -326,8 +327,16 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             </div>
           </div>
 
-          <label style={{ border: '1.5px dashed var(--line)', borderRadius: 4, padding: '34px 18px', textAlign: 'center', cursor: 'pointer', display: 'block' }}>
-            <div className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Cliquez ou glissez un fichier ici</div>
+          <label
+            style={{ border: `1.5px dashed ${dragOver ? 'var(--ink)' : 'var(--line)'}`, borderRadius: 4, padding: '34px 18px', textAlign: 'center', cursor: 'pointer', display: 'block', background: dragOver ? 'var(--paper-2)' : 'transparent', transition: 'border-color .15s, background .15s' }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files[0]; if (file) processFile(file); }}
+          >
+            <div className="mono" style={{ fontSize: 12, color: dragOver ? 'var(--ink)' : 'var(--ink-3)' }}>
+              {dragOver ? 'Relâchez pour importer' : 'Cliquez ou glissez un fichier ici'}
+            </div>
             <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>(.xlsx, .xls, .csv)</div>
             <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleImport} />
           </label>
