@@ -3,6 +3,65 @@ import autoTable from 'jspdf-autotable';
 import type { Session, Centre } from '../types';
 import { computeRow, computeTotals, pct } from './calculations';
 
+export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
+  const admis = (session.eleves ?? [])
+    .filter((e) => e.points !== null && e.points >= 180)
+    .sort((a, b) => {
+      const n = a.nom.localeCompare(b.nom, 'fr');
+      return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr');
+    });
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const headerY = drawHeader(doc, session);
+  const pageW = doc.internal.pageSize.getWidth();
+
+  const isGrand = format === 'grand';
+  const titleSize = isGrand ? 16 : 13;
+  const subSize = isGrand ? 10 : 8.5;
+  const tableSize = isGrand ? 11 : 8.5;
+  const cellPad = isGrand ? 4 : 2.5;
+
+  doc.setFontSize(titleSize);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LISTE DES ADMIS', pageW / 2, headerY + 8, { align: 'center' });
+
+  doc.setFontSize(subSize);
+  doc.setFont('helvetica', 'normal');
+  const sub = [session.examType, session.examSession, session.anneeScolaire].filter(Boolean).join(' — ');
+  doc.text(sub, pageW / 2, headerY + 15, { align: 'center' });
+
+  doc.setFont('helvetica', 'italic');
+  doc.text(`Total : ${admis.length} admis`, pageW / 2, headerY + 21, { align: 'center' });
+
+  const body = admis.map((e, i) => [
+    String(i + 1).padStart(3, '0'),
+    e.matricule || '—',
+    e.nom,
+    e.prenoms,
+    String(e.points ?? ''),
+  ]);
+
+  autoTable(doc, {
+    startY: headerY + 26,
+    head: [['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
+    body,
+    styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
+    headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
+    bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
+    alternateRowStyles: { fillColor: [248, 248, 248] },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 12 },
+      1: { halign: 'center', cellWidth: 35 },
+      2: { halign: 'left', fontStyle: 'bold' },
+      3: { halign: 'left' },
+      4: { halign: 'center', cellWidth: 18 },
+    },
+  });
+
+  const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
+  doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}.pdf`);
+}
+
 // Returns bottom Y of the header block so callers can position content dynamically
 function drawHeader(doc: jsPDF, session: Session): number {
   const pageW = doc.internal.pageSize.getWidth();
