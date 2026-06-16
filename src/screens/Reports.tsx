@@ -27,7 +27,9 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const allSelected = selectedClassIds.size === session.classes.length;
 
   const filteredClasses = session.classes.filter((c) => selectedClassIds.has(c.id));
-  const filteredSession = { ...session, classes: filteredClasses };
+  const filteredClassNames = new Set(filteredClasses.map((c) => c.name));
+  const filteredEleves = session.eleves.filter((e) => filteredClassNames.has(e.classe));
+  const filteredSession = { ...session, classes: filteredClasses, eleves: filteredEleves };
   const computed = filteredClasses.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
   const errors = countErrors(filteredClasses, session.examType);
@@ -242,16 +244,16 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
 
         {/* LISTE DES ADMIS */}
         {session.eleves.length > 0 && (() => {
-          const admisCount = session.eleves.filter((e) => e.points !== null && e.points >= admisThreshold(session.examType)).length;
+          const admisCount = filteredEleves.filter((e) => e.points !== null && e.points >= admisThreshold(session.examType)).length;
           return (
             <section style={{ marginTop: 56 }}>
-              <SectionHead n="★" title="Liste des admis" desc={`${admisCount} admis — triés alphabétiquement, toutes classes confondues.`} />
+              <SectionHead n="★" title="Liste des admis" desc={`${admisCount} admis${allSelected ? '' : ' (sélection)'} — triés alphabétiquement, toutes classes confondues.`} />
               <div style={{ display: 'flex', gap: 16, marginTop: 20, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 220, border: '1px solid var(--line)', borderRadius: 6, padding: '20px 22px' }}>
                   <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Grand format</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14 }}>Grande police — pour affichage</div>
                   <button className="btn btn--sm btn--accent" style={{ width: '100%' }}
-                    onClick={() => { exportListeAdmis(session, 'grand'); showToast('Export en cours…'); }}>
+                    onClick={() => { exportListeAdmis(filteredSession, 'grand'); showToast('Export en cours…'); }}>
                     ↓ Télécharger (affichage)
                   </button>
                 </div>
@@ -259,7 +261,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                   <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Format normal</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14 }}>Police standard — pour conservation</div>
                   <button className="btn btn--sm" style={{ width: '100%' }}
-                    onClick={() => { exportListeAdmis(session, 'normal'); showToast('Export en cours…'); }}>
+                    onClick={() => { exportListeAdmis(filteredSession, 'normal'); showToast('Export en cours…'); }}>
                     ↓ Télécharger (conservation)
                   </button>
                 </div>
