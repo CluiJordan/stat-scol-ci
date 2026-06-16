@@ -82,7 +82,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
   });
 
   const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
-  doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}.pdf`);
+  doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
 // Returns bottom Y of the header block so callers can position content dynamically
@@ -178,7 +178,7 @@ export function exportBEPCGeneral(session: Session) {
     didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], body.length - 1),
   });
 
-  doc.save(`BEPC_Statistique_Generale_${session.etablissement.replace(/\s+/g, '_')}.pdf`);
+  doc.save(`BEPC_Statistique_Generale_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
 export function exportBEPCParEtablissement(session: Session) {
@@ -240,7 +240,7 @@ export function exportBEPCParEtablissement(session: Session) {
     currentY = (doc as any).lastAutoTable.finalY + 8;
   });
 
-  doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}.pdf`);
+  doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
 export function exportBACStatistique(session: Session) {
@@ -296,5 +296,5 @@ export function exportBACStatistique(session: Session) {
     didParseCell: (data) => applyColColors(data, [6, 7, 8, 9], [10, 11, 12, 13], body.length - 1),
   });
 
-  doc.save(`BAC_Statistique_${session.etablissement.replace(/\s+/g, '_')}.pdf`);
+  doc.save(`BAC_Statistique_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
