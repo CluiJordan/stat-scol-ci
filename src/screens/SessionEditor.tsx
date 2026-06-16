@@ -363,21 +363,28 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         footer={<button className="btn" onClick={() => { setShowImport(false); setImportErrors([]); }}>Fermer</button>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
-            Importez un fichier Excel (.xlsx) ou CSV — l'app détecte automatiquement s'il s'agit d'une liste d'élèves ou de statistiques par classe.
+            {session.saisieMode === 'eleves'
+              ? 'Importez une liste d\'élèves au format Excel (.xlsx) ou CSV.'
+              : session.saisieMode === 'manuel'
+              ? `Importez un fichier de statistiques par classe au format ${session.examType} (.xlsx ou CSV).`
+              : 'Importez un fichier Excel (.xlsx) ou CSV.'}
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {session.saisieMode === 'eleves' && (
             <div style={{ padding: '14px', border: '1px solid var(--green-d)', borderRadius: 4, background: 'var(--green-w)' }}>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--green-d)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Liste élèves</div>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--green-d)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Format attendu</div>
               <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 10, lineHeight: 1.5 }}>Colonnes&nbsp;: Matricule · Nom · Prenoms · Genre (M/F) · Classe</div>
-              <button className="btn btn--ghost btn--sm" onClick={downloadElevesTemplate}>↓ Modèle élèves</button>
+              <button className="btn btn--ghost btn--sm" onClick={downloadElevesTemplate}>↓ Télécharger le modèle</button>
             </div>
+          )}
+
+          {session.saisieMode === 'manuel' && (
             <div style={{ padding: '14px', border: '1px solid var(--line)', borderRadius: 4 }}>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--ink-3)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Stats par classe</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 10, lineHeight: 1.5 }}>Colonnes&nbsp;: Classe · Inscrits · Présents · Admis… (format {session.examType})</div>
-              <button className="btn btn--ghost btn--sm" onClick={() => downloadTemplate(session.examType)}>↓ Modèle {session.examType}</button>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--ink-3)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Format attendu — {session.examType}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 10, lineHeight: 1.5 }}>Colonnes&nbsp;: Classe · Inscrits Garçon · Inscrits Fille · {session.examType === 'BAC' ? 'Présents Garçon · Présents Fille · ' : 'Candidats Présents · '}Admis Garçon · Admis Fille</div>
+              <button className="btn btn--ghost btn--sm" onClick={() => downloadTemplate(session.examType)}>↓ Télécharger le modèle {session.examType}</button>
             </div>
-          </div>
+          )}
 
           <label
             style={{ border: `1.5px dashed ${dragOver ? 'var(--ink)' : 'var(--line)'}`, borderRadius: 4, padding: '34px 18px', textAlign: 'center', cursor: 'pointer', display: 'block', background: dragOver ? 'var(--paper-2)' : 'transparent', transition: 'border-color .15s, background .15s' }}
