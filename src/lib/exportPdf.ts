@@ -16,11 +16,12 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   const computedRows = session.classes.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computedRows, session.examType);
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const isGrand = format === 'grand';
+  const doc = new jsPDF({ orientation: isGrand ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
   const headerY = drawHeader(doc, session, selectionNote);
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
 
-  const isGrand = format === 'grand';
   const titleSize = isGrand ? 16 : 13;
   const subSize = isGrand ? 10 : 8.5;
 
@@ -41,7 +42,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
 
   // Summary stats table (inscrits / présents / admis / taux — total + par genre)
   y += 5;
-  const statsHead = [['', 'Inscrits', 'Présents', 'Admis', 'Taux d\'admission']];
+  const statsHead = [['', 'Inscrits', 'Présents', 'Admis', "Taux d'admission"]];
   const statsBody = [
     ['Total', totals.inscritsTotal, totals.presentsTotal, totals.admisTotal, pct(totals.tauxTotal)],
     ['Garçons', totals.inscritsGarcon, isBac ? totals.presentsGarcon : '—', totals.admisGarcon, pct(totals.tauxGarcon)],
@@ -70,7 +71,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   let cellPad: number;
 
   if (isGrand) {
-    const availableH = 297 - summaryEndY - 8;
+    const availableH = pageH - summaryEndY - 8;
     const totalRows = admis.length + 1;
     const rowH = availableH / totalRows;
     tableSize = Math.max(8.5, Math.min(20, rowH / 0.62));
@@ -80,30 +81,28 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
     cellPad = 2.5;
   }
 
-  const body = admis.map((e, i) => [
-    String(i + 1).padStart(3, '0'),
-    e.matricule || '—',
-    e.nom,
-    e.prenoms,
-    String(e.points ?? ''),
-  ]);
+  // Grand format: no Points column (for display — fits more rows); normal: include Points
+  const body = admis.map((e, i) =>
+    isGrand
+      ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms]
+      : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, String(e.points ?? '')]
+  );
 
   autoTable(doc, {
     startY: summaryEndY,
-    head: [['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
+    head: [isGrand ? ['N°', 'Matricule', 'Nom', 'Prénoms'] : ['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
-    ...(isGrand ? { tableWidth: pageW - 28 } : {}),
+    tableWidth: pageW - 28,
     styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
     headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
     bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
     alternateRowStyles: { fillColor: [248, 248, 248] },
     columnStyles: isGrand
       ? {
-          0: { halign: 'center' },
-          1: { halign: 'center' },
+          0: { halign: 'center', cellWidth: 16 },
+          1: { halign: 'center', cellWidth: 48 },
           2: { halign: 'left', fontStyle: 'bold' },
           3: { halign: 'left' },
-          4: { halign: 'center' },
         }
       : {
           0: { halign: 'center', cellWidth: 12 },
