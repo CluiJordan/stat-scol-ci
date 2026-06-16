@@ -735,7 +735,7 @@ function EleveRow({ eleve, index, examType, zeroIsAbsent, onCommit, onDelete, on
   const pts = hasError ? null : (raw.trim() === '' ? null : parseFloat(raw.trim().replace(',', '.')));
   const isAdmis = pts !== null && pts >= threshold;
   const isAbsent = zeroIsAbsent && pts === 0;
-  const isAjoure = pts !== null && pts > 0 && pts < threshold;
+  const isAjoure = pts !== null && !isAbsent && pts < threshold;
 
   const commit = () => {
     if (hasError) return;
