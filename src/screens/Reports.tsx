@@ -72,69 +72,22 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           <div style={{ display: 'flex', gap: 12, padding: '13px 16px', border: '1px solid var(--orange-d)', background: 'var(--orange-w)', borderRadius: 4, marginBottom: 30 }}>
             <span style={{ color: 'var(--orange-d)', fontSize: 17 }}>▲</span>
             <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
-              <strong style={{ color: 'var(--orange-d)' }}>{errors} incohérence{errors > 1 ? 's' : ''} de saisie.</strong> Les taux sont plafonnés à 100 %. Corrigez via « Modifier » avant l’export officiel.
+              <strong style={{ color: 'var(--orange-d)' }}>{errors} incohérence{errors > 1 ? 's' : ''} de saisie.</strong> Les taux sont plafonnés à 100 %. Corrigez via « Modifier » avant l’export officiel.
             </div>
           </div>
-        )}
-
-        {/* HERO */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,0.9fr)', gap: 'clamp(24px, 5vw, 70px)', alignItems: 'end' }} className="report-hero">
-          <div>
-            <div className="eyebrow rise">{isBac ? 'Baccalauréat' : 'BEPC'} · {session.examSession}</div>
-            <div className="rise" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6, animationDelay: 'calc(.05s * var(--speed))' }}>
-              <span className="display tnum" style={{ fontSize: 'clamp(96px, 19vw, 220px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', lineHeight: 0.9 }}>
-                <Ticker value={totals.tauxTotal * 100} decimals={1} duration={1300} />
-              </span>
-              <span className="display" style={{ fontSize: 'clamp(34px, 6vw, 64px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', marginTop: 6 }}>%</span>
-            </div>
-            <div className="eyebrow rise" style={{ marginTop: 26, animationDelay: 'calc(.1s * var(--speed))' }}>
-              taux d’admission global · {totals.admisTotal} admis sur {totals.presentsTotal} présents
-            </div>
-          </div>
-          <div className="rise" style={{ animationDelay: 'calc(.15s * var(--speed))', borderLeft: '1px solid var(--line)', paddingLeft: 'clamp(20px, 4vw, 44px)' }}>
-            <GenderFig color="var(--green-d)" dot="var(--gar)" label="Garçons" value={totals.tauxGarcon} sub={`${totals.admisGarcon} admis`} />
-            <hr className="rule" style={{ margin: '18px 0' }} />
-            <GenderFig color="var(--orange-d)" dot="var(--fil)" label="Filles" value={totals.tauxFille} sub={`${totals.admisFille} admises`} />
-          </div>
-        </section>
-
-        <hr className="rule-ink" style={{ marginTop: 40 }} />
-
-        {/* STAT STRIP */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--line)' }} className="stat-strip">
-          <StatFig label="Inscrits" value={totals.inscritsTotal} />
-          <StatFig label="Présents" value={totals.presentsTotal} />
-          <StatFig label="Absents" value={totals.absents} />
-          <StatFig label="Admis" value={totals.admisTotal} accent />
-        </section>
-
-        {/* CHARTS */}
-        {computed.length > 0 && (
-          <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'clamp(24px, 5vw, 56px)', marginTop: 44 }} className="charts">
-            <div>
-              <h3 className="eyebrow" style={{ marginBottom: 18 }}>Admis · garçons / filles</h3>
-              <Donut a={totals.admisGarcon} b={totals.admisFille} labelA="Garçons" labelB="Filles" />
-            </div>
-            <div>
-              <h3 className="eyebrow" style={{ marginBottom: 18 }}>Admis par classe</h3>
-              {barRows.length > 0
-                ? <BarChart rows={barRows} />
-                : <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun admis enregistré.</p>}
-            </div>
-          </section>
         )}
 
         {/* FILTER PANEL */}
         {session.classes.length > 1 && (
-          <section style={{ marginTop: 44 }}>
+          <section style={{ marginBottom: 40 }}>
             <button
               onClick={() => setShowFilter((v) => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: '1px solid var(--line)', borderRadius: 4, padding: '9px 14px', cursor: 'pointer', width: '100%', justifyContent: 'space-between' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: '1px solid var(--line)', borderRadius: showFilter ? '4px 4px 0 0' : 4, padding: '9px 14px', cursor: 'pointer', width: '100%', justifyContent: 'space-between' }}>
               <span className="mono" style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink-2)' }}>
-                Filtrer l'export
+                Filtre par classe
               </span>
               <span className="mono" style={{ fontSize: 11, color: allSelected ? 'var(--ink-3)' : 'var(--orange-d)', fontWeight: allSelected ? 400 : 700 }}>
-                {allSelected ? 'Toutes les classes' : `${selectedClassIds.size} / ${session.classes.length} classe${session.classes.length > 1 ? 's' : ''}`} {showFilter ? '▲' : '▼'}
+                {allSelected ? 'Toutes les classes' : `${selectedClassIds.size} / ${session.classes.length} classe${session.classes.length > 1 ? 's' : ''}`} {showFilter ? '▲' : '▼'}
               </span>
             </button>
             {showFilter && (
@@ -218,10 +171,57 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           </section>
         )}
 
+        {/* HERO */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,0.9fr)', gap: 'clamp(24px, 5vw, 70px)', alignItems: 'end' }} className="report-hero">
+          <div>
+            <div className="eyebrow rise">{isBac ? 'Baccalauréat' : 'BEPC'} · {session.examSession}{!allSelected ? ' · sélection partielle' : ''}</div>
+            <div className="rise" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6, animationDelay: 'calc(.05s * var(--speed))' }}>
+              <span className="display tnum" style={{ fontSize: 'clamp(96px, 19vw, 220px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', lineHeight: 0.9 }}>
+                <Ticker value={totals.tauxTotal * 100} decimals={1} duration={1300} />
+              </span>
+              <span className="display" style={{ fontSize: 'clamp(34px, 6vw, 64px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', marginTop: 6 }}>%</span>
+            </div>
+            <div className="eyebrow rise" style={{ marginTop: 26, animationDelay: 'calc(.1s * var(--speed))' }}>
+              taux d’admission global · {totals.admisTotal} admis sur {totals.presentsTotal} présents
+            </div>
+          </div>
+          <div className="rise" style={{ animationDelay: 'calc(.15s * var(--speed))', borderLeft: '1px solid var(--line)', paddingLeft: 'clamp(20px, 4vw, 44px)' }}>
+            <GenderFig color="var(--green-d)" dot="var(--gar)" label="Garçons" value={totals.tauxGarcon} sub={`${totals.admisGarcon} admis`} />
+            <hr className="rule" style={{ margin: '18px 0' }} />
+            <GenderFig color="var(--orange-d)" dot="var(--fil)" label="Filles" value={totals.tauxFille} sub={`${totals.admisFille} admises`} />
+          </div>
+        </section>
+
+        <hr className="rule-ink" style={{ marginTop: 40 }} />
+
+        {/* STAT STRIP */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--line)' }} className="stat-strip">
+          <StatFig label="Inscrits" value={totals.inscritsTotal} />
+          <StatFig label="Présents" value={totals.presentsTotal} />
+          <StatFig label="Absents" value={totals.absents} />
+          <StatFig label="Admis" value={totals.admisTotal} accent />
+        </section>
+
+        {/* CHARTS */}
+        {computed.length > 0 && (
+          <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'clamp(24px, 5vw, 56px)', marginTop: 44 }} className="charts">
+            <div>
+              <h3 className="eyebrow" style={{ marginBottom: 18 }}>Admis · garçons / filles</h3>
+              <Donut a={totals.admisGarcon} b={totals.admisFille} labelA="Garçons" labelB="Filles" />
+            </div>
+            <div>
+              <h3 className="eyebrow" style={{ marginBottom: 18 }}>Admis par classe</h3>
+              {barRows.length > 0
+                ? <BarChart rows={barRows} />
+                : <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun admis enregistré.</p>}
+            </div>
+          </section>
+        )}
+
         {/* OFFICIAL TABLE */}
         <section style={{ marginTop: 56 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
-            <SectionHead n="✶" title="Le relevé officiel" desc="Tableau prêt à l’export, fidèle au format administratif." />
+            <SectionHead n="✾" title="Le relevé officiel" desc="Tableau prêt à l’export, fidèle au format administratif." />
             {!isBac && (
               <div style={{ display: 'flex', gap: 0, border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden' }}>
                 {([['bepc-general', 'Générale'], ['bepc-etablissement', 'Par établissement']] as [ReportType, string][]).map(([k, l]) => (
@@ -237,7 +237,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           <BulletinHeader session={session} />
           <div className="scroll-x" style={{ border: '1px solid var(--line)', borderTop: 'none' }}>
             {report === 'bepc-general' && <BEPCTable rows={computed} totals={totals} />}
-            {report === 'bepc-etablissement' && <BEPCParEtabTable session={session} computed={computed} />}
+            {report === 'bepc-etablissement' && <BEPCParEtabTable session={filteredSession} computed={computed} />}
             {report === 'bac' && <BACTable rows={computed} totals={totals} />}
           </div>
         </section>
