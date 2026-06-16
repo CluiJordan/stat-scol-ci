@@ -53,6 +53,7 @@ export default function Dashboard({ onOpen, onReports }: Props) {
       anneeScolaire: form.anneeScolaire,
       examType: form.examType,
       examSession: form.examSession,
+      saisieMode: null,
       centres: [],
       classes: [],
       eleves: [],

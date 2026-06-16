@@ -39,6 +39,7 @@ export interface Session {
   anneeScolaire: string;
   examType: ExamType;
   examSession: string;
+  saisieMode: 'eleves' | 'manuel' | null;
   centres: Centre[];
   classes: ClassRow[];
   eleves: Eleve[];

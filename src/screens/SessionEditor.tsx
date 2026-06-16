@@ -54,6 +54,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   }, []);
 
   const setField = (k: keyof Session, v: string) => persist({ ...session, [k]: v });
+  const setSaisieMode = (mode: Session['saisieMode']) => persist({ ...session, saisieMode: mode });
   const addCentre = () => { const c: Centre = { id: uuid(), name: `COLLÈGE ${session.centres.length + 1}` }; persist({ ...session, centres: [...session.centres, c] }); };
   const updateCentre = (id: string, name: string) => persist({ ...session, centres: session.centres.map((c) => c.id === id ? { ...c, name } : c) });
   const deleteCentre = (id: string) => persist({ ...session, centres: session.centres.filter((c) => c.id !== id), classes: session.classes.map((c) => c.centreId === id ? { ...c, centreId: null } : c) });
@@ -136,7 +137,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
   const isBac = session.examType === 'BAC';
   const hasEleves = session.eleves.length > 0;
-  const totalErrors = hasEleves ? 0 : countErrors(session.classes, session.examType);
+  const totalErrors = session.saisieMode === 'manuel' ? countErrors(session.classes, session.examType) : 0;
   const centreOptions = [{ value: '', label: '— Aucun collège —' }, ...session.centres.map((c) => ({ value: c.id, label: c.name }))];
 
   const steps = [
@@ -277,21 +278,29 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
           <div className="rise">
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
               <SectionHead n="03" title="Saisie des données"
-                desc={hasEleves
-                  ? `Entrez les points de chaque élève. Points ≥ ${admisThreshold(session.examType)} = Admis · Points = 0 = Absent.`
-                  : 'Les colonnes grisées sont calculées en direct. Les valeurs impossibles sont signalées en orange.'
+                desc={
+                  session.saisieMode === 'eleves'
+                    ? `Entrez les points de chaque élève. Points ≥ ${admisThreshold(session.examType)} = Admis · Points = 0 = Absent.`
+                    : session.saisieMode === 'manuel'
+                    ? 'Les colonnes grisées sont calculées en direct. Les valeurs impossibles sont signalées en orange.'
+                    : 'Choisissez comment vous souhaitez saisir les données.'
                 }
               />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
-                {hasEleves && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {session.saisieMode !== null && session.eleves.length === 0 && (
+                  <button className="btn btn--ghost btn--sm" style={{ color: 'var(--ink-3)' }} onClick={() => setSaisieMode(null)}>← Changer de mode</button>
+                )}
+                {session.saisieMode !== null && (
+                  <button className="btn btn--sm" onClick={() => setShowImport(true)}>Importer</button>
+                )}
+                {session.saisieMode === 'eleves' && hasEleves && (
                   <button className="btn btn--sm" onClick={() => exportElevesResultats(session)}>↓ Résultats Excel</button>
                 )}
               </div>
             </div>
 
             {/* Error banner — manual mode only */}
-            {!hasEleves && totalErrors > 0 && (
+            {session.saisieMode === 'manuel' && totalErrors > 0 && (
               <div style={{ display: 'flex', gap: 12, padding: '14px 16px', border: '1px solid var(--orange-d)', background: 'var(--orange-w)', borderRadius: 4, marginBottom: 16 }}>
                 <span style={{ color: 'var(--orange-d)', fontSize: 18, lineHeight: 1 }}>▲</span>
                 <div>
@@ -302,16 +311,20 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
             )}
 
             {/* Content */}
-            {session.classes.length === 0 && !hasEleves ? (
-              <div style={{ textAlign: 'center', padding: '70px 0' }}>
-                <p className="display" style={{ fontSize: 24, margin: 0 }}>Rien à saisir</p>
-                <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Ajoutez d'abord des classes ou importez un fichier élèves.</p>
-                <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
-              </div>
-            ) : hasEleves ? (
-              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} deleteEleves={deleteEleves} onClearEleves={() => setShowClearEleves(true)} updateEleveInfo={updateEleveInfo} />
+            {session.saisieMode === null ? (
+              <SaisieChoix onChoose={setSaisieMode} />
+            ) : session.saisieMode === 'eleves' ? (
+              <EleveSaisie session={session} addEleve={addEleve} updateEleve={updateEleve} deleteEleve={deleteEleve} deleteEleves={deleteEleves} onClearEleves={() => setShowClearEleves(true)} onImport={() => setShowImport(true)} updateEleveInfo={updateEleveInfo} />
             ) : (
-              <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
+              session.classes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '70px 0' }}>
+                  <p className="display" style={{ fontSize: 24, margin: 0 }}>Rien à saisir</p>
+                  <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Ajoutez d'abord des classes dans l'onglet Classes ou importez un fichier.</p>
+                  <div style={{ marginTop: 20 }}><button className="btn btn--solid" onClick={() => setTab('classes')}>← Aller aux classes</button></div>
+                </div>
+              ) : (
+                <SaisieTable session={session} isBac={isBac} updateClass={updateClass} />
+              )
             )}
           </div>
         )}
@@ -393,13 +406,14 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
 /* ─────────────────────────── Student list saisie ─────────────────────────── */
 
-function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves, onClearEleves, updateEleveInfo }: {
+function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves, onClearEleves, onImport, updateEleveInfo }: {
   session: Session;
   addEleve: (eleve: Omit<Eleve, 'id'>) => void;
   updateEleve: (id: string, points: number | null) => void;
   deleteEleve: (id: string) => void;
   deleteEleves: (ids: string[]) => void;
   onClearEleves: () => void;
+  onImport: () => void;
   updateEleveInfo: (id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
 }) {
   const [search, setSearch] = useState('');
@@ -446,46 +460,59 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
 
   const totalMatches = groups.reduce((s, g) => s + g.rows.length, 0) + unmatched.length;
 
-  if (groups.length === 0 && unmatched.length === 0 && !q) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px 0' }}>
-        <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun élève correspondant aux classes déclarées. Vérifiez les noms de classe.</p>
-      </div>
-    );
-  }
+  const noEleves = session.eleves.length === 0;
+  const noResults = !noEleves && groups.length === 0 && unmatched.length === 0 && !q;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-      {/* Search bar + actions */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <input
-            className="input"
-            placeholder="Rechercher par nom, prénoms ou matricule…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', paddingLeft: 36 }}
-          />
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', fontSize: 14, pointerEvents: 'none' }}>⌕</span>
-          {q && (
-            <span className="mono" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--ink-3)' }}>
-              {totalMatches} résultat{totalMatches !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
-        {selected.size > 0 ? (
-          <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowBulkDelete(true)}>
-            Effacer la sélection ({selected.size})
-          </button>
-        ) : (
-          <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={onClearEleves}>
-            Effacer les élèves
-          </button>
-        )}
-      </div>
 
-      {groups.map(({ cls, rows, total }) => {
+      {noEleves ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <p className="display" style={{ fontSize: 22, margin: 0 }}>Aucun élève importé</p>
+          <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>Importez un fichier ou ajoutez un élève manuellement pour commencer.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+            <button className="btn btn--solid" onClick={onImport}>Importer un fichier</button>
+            <button className="btn" onClick={() => setShowAdd(true)}>+ Ajouter manuellement</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Search bar + actions */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input
+                className="input"
+                placeholder="Rechercher par nom, prénoms ou matricule…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: '100%', paddingLeft: 36 }}
+              />
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', fontSize: 14, pointerEvents: 'none' }}>⌕</span>
+              {q && (
+                <span className="mono" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--ink-3)' }}>
+                  {totalMatches} résultat{totalMatches !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
+            {selected.size > 0 ? (
+              <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowBulkDelete(true)}>
+                Effacer la sélection ({selected.size})
+              </button>
+            ) : (
+              <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={onClearEleves}>
+                Effacer les élèves
+              </button>
+            )}
+          </div>
+
+          {noResults && (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun élève correspondant aux classes déclarées. Vérifiez les noms de classe.</p>
+            </div>
+          )}
+
+          {groups.map(({ cls, rows, total }) => {
         const entered = rows.filter((e) => e.points !== null).length;
         const present = rows.filter((e) => e.points !== null && e.points > 0).length;
         const threshold = admisThreshold(session.examType);
@@ -558,6 +585,8 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
             </table>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Edit modal */}
@@ -814,6 +843,42 @@ function AddEleveModal({ classes, onSave, onClose }: {
         </Field>
       </div>
     </Modal>
+  );
+}
+
+/* ─────────────────────────── Mode choice screen ─────────────────────────── */
+
+function SaisieChoix({ onChoose }: { onChoose: (mode: 'eleves' | 'manuel') => void }) {
+  const card: React.CSSProperties = {
+    textAlign: 'left', background: 'var(--card)', border: '1.5px solid var(--line)',
+    borderRadius: 6, padding: '28px 24px', cursor: 'pointer', transition: 'border-color .15s',
+    display: 'flex', flexDirection: 'column', gap: 10,
+  };
+  return (
+    <div style={{ maxWidth: 680, margin: '24px auto 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <button style={card}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--ink)')}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+          onClick={() => onChoose('eleves')}>
+          <span style={{ fontSize: 26 }}>📋</span>
+          <span className="display" style={{ fontSize: 15, fontWeight: 700 }}>Liste des élèves</span>
+          <span style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+            Tu as les noms et notes de chaque élève. Les stats sont calculées automatiquement.
+          </span>
+        </button>
+        <button style={card}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--ink)')}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+          onClick={() => onChoose('manuel')}>
+          <span style={{ fontSize: 26 }}>📊</span>
+          <span className="display" style={{ fontSize: 15, fontWeight: 700 }}>Stats par classe</span>
+          <span style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+            Tu as uniquement les totaux par classe (inscrits, présents, admis). Saisie directe ou import.
+          </span>
+        </button>
+      </div>
+    </div>
   );
 }
 
