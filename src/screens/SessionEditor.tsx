@@ -850,20 +850,19 @@ function AddEleveModal({ classes, onSave, onClose }: {
 
 function SaisieChoix({ onChoose }: { onChoose: (mode: 'eleves' | 'manuel') => void }) {
   const card: React.CSSProperties = {
-    textAlign: 'left', background: 'var(--card)', border: '1.5px solid var(--line)',
-    borderRadius: 6, padding: '28px 24px', cursor: 'pointer', transition: 'border-color .15s',
-    display: 'flex', flexDirection: 'column', gap: 10,
+    textAlign: 'left', background: 'var(--card)', border: '2px dashed var(--line)',
+    borderRadius: 6, padding: '40px 32px', cursor: 'pointer', transition: 'border-color .15s',
+    display: 'flex', flexDirection: 'column', gap: 14,
   };
   return (
-    <div style={{ maxWidth: 680, margin: '24px auto 0' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+    <div style={{ maxWidth: 860, margin: '32px auto 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <button style={card}
           onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--ink)')}
           onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
           onClick={() => onChoose('eleves')}>
-          <span style={{ fontSize: 26 }}>📋</span>
-          <span className="display" style={{ fontSize: 15, fontWeight: 700 }}>Liste des élèves</span>
-          <span style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+          <span className="display" style={{ fontSize: 26, fontWeight: 700 }}>Liste des élèves</span>
+          <span style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.6 }}>
             Tu as les noms et notes de chaque élève. Les stats sont calculées automatiquement.
           </span>
         </button>
@@ -871,9 +870,8 @@ function SaisieChoix({ onChoose }: { onChoose: (mode: 'eleves' | 'manuel') => vo
           onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--ink)')}
           onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
           onClick={() => onChoose('manuel')}>
-          <span style={{ fontSize: 26 }}>📊</span>
-          <span className="display" style={{ fontSize: 15, fontWeight: 700 }}>Stats par classe</span>
-          <span style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+          <span className="display" style={{ fontSize: 26, fontWeight: 700 }}>Stats par classe</span>
+          <span style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.6 }}>
             Tu as uniquement les totaux par classe (inscrits, présents, admis). Saisie directe ou import.
           </span>
         </button>
