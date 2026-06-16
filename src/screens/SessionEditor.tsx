@@ -65,32 +65,32 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const addEleve = useCallback((eleve: Omit<Eleve, 'id'>) => {
     const newEleve: Eleve = { ...eleve, id: uuid() };
     const newEleves = [...session.eleves, newEleve];
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const updateEleve = useCallback((id: string, points: number | null) => {
     const newEleves = session.eleves.map((e) => e.id === id ? { ...e, points } : e);
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const deleteEleve = useCallback((id: string) => {
     const newEleves = session.eleves.filter((e) => e.id !== id);
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const deleteEleves = useCallback((ids: string[]) => {
     const idSet = new Set(ids);
     const newEleves = session.eleves.filter((e) => !idSet.has(e.id));
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const updateEleveInfo = useCallback((id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => {
     const newEleves = session.eleves.map((e) => e.id === id ? { ...e, ...updates } : e);
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
@@ -119,7 +119,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0,
       }));
       const allEleves = [...session.eleves, ...toAdd];
-      const allClasses = applyElevesToClasses([...session.classes, ...newClassRows], allEleves, session.examType);
+      const allClasses = applyElevesToClasses([...session.classes, ...newClassRows], allEleves, session.examType, session.zeroIsAbsent);
       persist({ ...session, eleves: allEleves, classes: allClasses });
       if (result.errors.length === 0) setShowImport(false);
     } else if (result.rows.length > 0) {
@@ -206,6 +206,12 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               </div>
               <Field label="Ministère"><TextInput value={session.ministere} upper onChange={(v) => setField('ministere', v)} /></Field>
               <Field label="Session"><TextInput value={session.examSession} upper placeholder="EX: SESSION 2025" onChange={(v) => setField('examSession', v)} /></Field>
+              {session.saisieMode === 'eleves' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '11px 14px', borderRadius: 4, border: '1px solid var(--line)', userSelect: 'none' }}>
+                  <input type="checkbox" checked={session.zeroIsAbsent} onChange={(e) => persist({ ...session, zeroIsAbsent: e.target.checked })} style={{ width: 14, height: 14, accentColor: 'var(--ink)', flexShrink: 0, cursor: 'pointer' }} />
+                  <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Considérer les points à <strong>0</strong> comme <strong>absents</strong></span>
+                </label>
+              )}
             </div>
           </div>
         )}
@@ -551,7 +557,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
                   </thead>
                   <tbody>
                     {allSorted.map((eleve, i) => (
-                      <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} showClasse />
+                      <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} zeroIsAbsent={session.zeroIsAbsent} showClasse />
                     ))}
                   </tbody>
                 </table>
@@ -567,7 +573,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
 
               {groups.map(({ cls, rows, total }) => {
                 const entered = rows.filter((e) => e.points !== null).length;
-                const present = rows.filter((e) => e.points !== null && e.points > 0).length;
+                const present = rows.filter((e) => e.points !== null && (!session.zeroIsAbsent || e.points > 0)).length;
                 const threshold = admisThreshold(session.examType);
                 const admis = rows.filter((e) => e.points !== null && e.points >= threshold).length;
                 const progress = total > 0 ? Math.round((eleves.filter((e) => e.classe === cls.name && e.points !== null).length / total) * 100) : 0;
@@ -607,7 +613,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
                         </thead>
                         <tbody>
                           {rows.map((eleve, i) => (
-                            <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} />
+                            <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} zeroIsAbsent={session.zeroIsAbsent} />
                           ))}
                         </tbody>
                       </table>
@@ -696,10 +702,11 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelected, onToggle, showClasse }: {
+function EleveRow({ eleve, index, examType, zeroIsAbsent, onCommit, onDelete, onEdit, isSelected, onToggle, showClasse }: {
   eleve: Eleve;
   index: number;
   examType: import('../types').ExamType;
+  zeroIsAbsent: boolean;
   onCommit: (id: string, points: number | null) => void;
   onDelete: (eleve: Eleve) => void;
   onEdit: (eleve: Eleve) => void;
@@ -727,7 +734,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelect
   const hasError = !isValid(raw);
   const pts = hasError ? null : (raw.trim() === '' ? null : parseFloat(raw.trim().replace(',', '.')));
   const isAdmis = pts !== null && pts >= threshold;
-  const isAbsent = pts === 0;
+  const isAbsent = zeroIsAbsent && pts === 0;
   const isAjoure = pts !== null && pts > 0 && pts < threshold;
 
   const commit = () => {

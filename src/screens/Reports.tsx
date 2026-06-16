@@ -20,12 +20,25 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const session = getSession(sessionId)!;
   const [report, setReport] = useState<ReportType>(session.examType === 'BAC' ? 'bac' : 'bepc-general');
   const [toast, showToast] = useToast();
+  const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(() => new Set(session.classes.map((c) => c.id)));
+  const [showFilter, setShowFilter] = useState(false);
 
   const isBac = session.examType === 'BAC';
-  const computed = session.classes.map((c) => computeRow(c, session.examType));
+  const allSelected = selectedClassIds.size === session.classes.length;
+
+  const filteredClasses = session.classes.filter((c) => selectedClassIds.has(c.id));
+  const filteredSession = { ...session, classes: filteredClasses };
+  const computed = filteredClasses.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
-  const errors = countErrors(session.classes, session.examType);
+  const errors = countErrors(filteredClasses, session.examType);
   const good = totals.tauxTotal >= 0.5;
+
+  const toggleClass = (id: string) => setSelectedClassIds((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const toggleAll = () => setSelectedClassIds(allSelected ? new Set() : new Set(session.classes.map((c) => c.id)));
 
   const barRows = computed
     .filter((r) => r.admisTotal > 0)
@@ -33,9 +46,9 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
     .map((r, i) => ({ label: r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name, value: r.admisTotal, color: i === 0 ? 'var(--orange)' : 'var(--ink)' }));
 
   function handlePdf() {
-    if (report === 'bepc-general') exportBEPCGeneral(session);
-    else if (report === 'bepc-etablissement') exportBEPCParEtablissement(session);
-    else exportBACStatistique(session);
+    if (report === 'bepc-general') exportBEPCGeneral(filteredSession);
+    else if (report === 'bepc-etablissement') exportBEPCParEtablissement(filteredSession);
+    else exportBACStatistique(filteredSession);
   }
 
   return (
@@ -46,7 +59,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
         right={
           <>
             <button className="btn btn--sm" onClick={onEdit}>Modifier</button>
-            <button className="btn btn--sm" onClick={() => { exportExcel(session); showToast('Export Excel en cours…'); }}>Excel</button>
+            <button className="btn btn--sm" onClick={() => { exportExcel(filteredSession); showToast('Export Excel en cours…'); }}>Excel</button>
             <button className="btn btn--sm btn--accent" onClick={handlePdf}>Export PDF ↓</button>
           </>
         }
@@ -106,6 +119,100 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                 ? <BarChart rows={barRows} />
                 : <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun admis enregistré.</p>}
             </div>
+          </section>
+        )}
+
+        {/* FILTER PANEL */}
+        {session.classes.length > 1 && (
+          <section style={{ marginTop: 44 }}>
+            <button
+              onClick={() => setShowFilter((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: '1px solid var(--line)', borderRadius: 4, padding: '9px 14px', cursor: 'pointer', width: '100%', justifyContent: 'space-between' }}>
+              <span className="mono" style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink-2)' }}>
+                Filtrer l'export
+              </span>
+              <span className="mono" style={{ fontSize: 11, color: allSelected ? 'var(--ink-3)' : 'var(--orange-d)', fontWeight: allSelected ? 400 : 700 }}>
+                {allSelected ? 'Toutes les classes' : `${selectedClassIds.size} / ${session.classes.length} classe${session.classes.length > 1 ? 's' : ''}`} {showFilter ? '▲' : '▼'}
+              </span>
+            </button>
+            {showFilter && (
+              <div style={{ border: '1px solid var(--line)', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '16px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
+                    <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = !allSelected && selectedClassIds.size > 0; }} onChange={toggleAll} style={{ cursor: 'pointer', accentColor: 'var(--ink)' }} />
+                    <span className="mono" style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Tout sélectionner</span>
+                  </label>
+                </div>
+                {isBac ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {session.classes.map((c) => (
+                      <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 10px', border: `1px solid ${selectedClassIds.has(c.id) ? 'var(--ink)' : 'var(--line)'}`, borderRadius: 3, background: selectedClassIds.has(c.id) ? 'var(--ink)' : 'transparent', userSelect: 'none', transition: 'all .12s' }}>
+                        <input type="checkbox" checked={selectedClassIds.has(c.id)} onChange={() => toggleClass(c.id)} style={{ display: 'none' }} />
+                        <span className="mono" style={{ fontSize: 11, color: selectedClassIds.has(c.id) ? '#fff' : 'var(--ink-2)' }}>{c.name || '—'}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {session.centres.length > 0 ? (
+                      <>
+                        {session.centres.map((centre) => {
+                          const centreClasses = session.classes.filter((c) => c.centreId === centre.id);
+                          if (centreClasses.length === 0) return null;
+                          const allCentreSelected = centreClasses.every((c) => selectedClassIds.has(c.id));
+                          return (
+                            <div key={centre.id}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none', marginBottom: 8 }}>
+                                <input type="checkbox" checked={allCentreSelected}
+                                  ref={(el) => { if (el) el.indeterminate = !allCentreSelected && centreClasses.some((c) => selectedClassIds.has(c.id)); }}
+                                  onChange={() => {
+                                    setSelectedClassIds((prev) => {
+                                      const next = new Set(prev);
+                                      centreClasses.forEach((c) => allCentreSelected ? next.delete(c.id) : next.add(c.id));
+                                      return next;
+                                    });
+                                  }} style={{ cursor: 'pointer', accentColor: 'var(--ink)' }} />
+                                <span className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--ink-2)' }}>{centre.name}</span>
+                              </label>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 22 }}>
+                                {centreClasses.map((c) => (
+                                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '4px 9px', border: `1px solid ${selectedClassIds.has(c.id) ? 'var(--ink)' : 'var(--line)'}`, borderRadius: 3, background: selectedClassIds.has(c.id) ? 'var(--ink)' : 'transparent', userSelect: 'none', transition: 'all .12s' }}>
+                                    <input type="checkbox" checked={selectedClassIds.has(c.id)} onChange={() => toggleClass(c.id)} style={{ display: 'none' }} />
+                                    <span className="mono" style={{ fontSize: 11, color: selectedClassIds.has(c.id) ? '#fff' : 'var(--ink-2)' }}>{c.name || '—'}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {session.classes.filter((c) => !c.centreId || !session.centres.find((ct) => ct.id === c.centreId)).length > 0 && (
+                          <div>
+                            <span className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--ink-3)', marginBottom: 8, display: 'block' }}>Autres</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 22 }}>
+                              {session.classes.filter((c) => !c.centreId || !session.centres.find((ct) => ct.id === c.centreId)).map((c) => (
+                                <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '4px 9px', border: `1px solid ${selectedClassIds.has(c.id) ? 'var(--ink)' : 'var(--line)'}`, borderRadius: 3, background: selectedClassIds.has(c.id) ? 'var(--ink)' : 'transparent', userSelect: 'none', transition: 'all .12s' }}>
+                                  <input type="checkbox" checked={selectedClassIds.has(c.id)} onChange={() => toggleClass(c.id)} style={{ display: 'none' }} />
+                                  <span className="mono" style={{ fontSize: 11, color: selectedClassIds.has(c.id) ? '#fff' : 'var(--ink-2)' }}>{c.name || '—'}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {session.classes.map((c) => (
+                          <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 10px', border: `1px solid ${selectedClassIds.has(c.id) ? 'var(--ink)' : 'var(--line)'}`, borderRadius: 3, background: selectedClassIds.has(c.id) ? 'var(--ink)' : 'transparent', userSelect: 'none', transition: 'all .12s' }}>
+                            <input type="checkbox" checked={selectedClassIds.has(c.id)} onChange={() => toggleClass(c.id)} style={{ display: 'none' }} />
+                            <span className="mono" style={{ fontSize: 11, color: selectedClassIds.has(c.id) ? '#fff' : 'var(--ink-2)' }}>{c.name || '—'}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
 

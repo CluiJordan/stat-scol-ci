@@ -12,7 +12,7 @@ export function exportElevesResultats(session: Session) {
     const threshold = admisThreshold(session.examType);
     const statut = e.points === null ? ''
       : e.points >= threshold ? (e.genre === 'F' ? 'ADMISE' : 'ADMIS')
-      : e.points === 0 ? (e.genre === 'F' ? 'ABSENTE' : 'ABSENT')
+      : (session.zeroIsAbsent && e.points === 0) ? (e.genre === 'F' ? 'ABSENTE' : 'ABSENT')
       : (e.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ');
     return [i + 1, e.matricule || '', e.nom, e.prenoms, e.genre, e.classe, e.points ?? '', statut];
   });
