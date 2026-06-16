@@ -35,6 +35,23 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const errors = countErrors(filteredClasses, session.examType);
   const good = totals.tauxTotal >= 0.5;
 
+  // Label shown in PDFs when a subset of classes/colleges is selected
+  const selectionNote: string | undefined = (() => {
+    if (allSelected) return undefined;
+    if (session.centres.length > 0) {
+      const centreNames = session.centres
+        .filter((c) => filteredClasses.some((cls) => cls.centreId === c.id))
+        .map((c) => c.name);
+      const hasOther = filteredClasses.some((c) => !c.centreId || !session.centres.find((ct) => ct.id === c.centreId));
+      const parts = [...centreNames, ...(hasOther ? ['Autres'] : [])];
+      return parts.length > 0 ? parts.join(' · ') : undefined;
+    }
+    // No centres (BAC or BEPC without centres) — list class names
+    const MAX = 5;
+    const names = filteredClasses.map((c) => c.name);
+    return names.length <= MAX ? names.join(', ') : `${names.slice(0, MAX).join(', ')} +${names.length - MAX}`;
+  })();
+
   const toggleClass = (id: string) => setSelectedClassIds((prev) => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -48,9 +65,9 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
     .map((r, i) => ({ label: r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name, value: r.admisTotal, color: i === 0 ? 'var(--orange)' : 'var(--ink)' }));
 
   function handlePdf() {
-    if (report === 'bepc-general') exportBEPCGeneral(filteredSession);
+    if (report === 'bepc-general') exportBEPCGeneral(filteredSession, selectionNote);
     else if (report === 'bepc-etablissement') exportBEPCParEtablissement(filteredSession);
-    else exportBACStatistique(filteredSession);
+    else exportBACStatistique(filteredSession, selectionNote);
   }
 
   return (
@@ -253,7 +270,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                   <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Grand format</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14 }}>Grande police — pour affichage</div>
                   <button className="btn btn--sm btn--accent" style={{ width: '100%' }}
-                    onClick={() => { exportListeAdmis(filteredSession, 'grand'); showToast('Export en cours…'); }}>
+                    onClick={() => { exportListeAdmis(filteredSession, 'grand', selectionNote); showToast('Export en cours…'); }}>
                     ↓ Télécharger (affichage)
                   </button>
                 </div>
@@ -261,7 +278,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                   <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Format normal</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14 }}>Police standard — pour conservation</div>
                   <button className="btn btn--sm" style={{ width: '100%' }}
-                    onClick={() => { exportListeAdmis(filteredSession, 'normal'); showToast('Export en cours…'); }}>
+                    onClick={() => { exportListeAdmis(filteredSession, 'normal', selectionNote); showToast('Export en cours…'); }}>
                     ↓ Télécharger (conservation)
                   </button>
                 </div>

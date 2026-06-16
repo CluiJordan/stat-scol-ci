@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import type { Session, Centre } from '../types';
 import { computeRow, computeTotals, pct, admisThreshold } from './calculations';
 
-export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
+export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string) {
   const admis = (session.eleves ?? [])
     .filter((e) => e.points !== null && e.points >= admisThreshold(session.examType))
     .sort((a, b) => {
@@ -12,7 +12,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
     });
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const headerY = drawHeader(doc, session);
+  const headerY = drawHeader(doc, session, selectionNote);
   const pageW = doc.internal.pageSize.getWidth();
 
   const isGrand = format === 'grand';
@@ -86,7 +86,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal') {
 }
 
 // Returns bottom Y of the header block so callers can position content dynamically
-function drawHeader(doc: jsPDF, session: Session): number {
+function drawHeader(doc: jsPDF, session: Session, selectionNote?: string): number {
   const pageW = doc.internal.pageSize.getWidth();
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -114,7 +114,16 @@ function drawHeader(doc: jsPDF, session: Session): number {
   if (session.etablissement) doc.text(session.etablissement, 14, etabY);
   if (session.code) doc.text(session.code, 14, etabY + lineH);
 
-  return etabY + (session.code ? lineH * 2 : lineH) + 2;
+  let finalY = etabY + (session.code ? lineH * 2 : lineH) + 2;
+
+  if (selectionNote) {
+    doc.setFont('helvetica', 'bolditalic');
+    doc.text(`Sélection : ${selectionNote}`, 14, finalY);
+    doc.setFont('helvetica', 'normal');
+    finalY += lineH + 1;
+  }
+
+  return finalY;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,9 +144,9 @@ function applyColColors(data: any, garconCols: number[], filleCols: number[], to
   }
 }
 
-export function exportBEPCGeneral(session: Session) {
+export function exportBEPCGeneral(session: Session, selectionNote?: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const headerY = drawHeader(doc, session);
+  const headerY = drawHeader(doc, session, selectionNote);
 
   const computed = session.classes.map((c) => computeRow(c, 'BEPC'));
   const totals = computeTotals(computed, 'BEPC');
@@ -243,9 +252,9 @@ export function exportBEPCParEtablissement(session: Session) {
   doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
-export function exportBACStatistique(session: Session) {
+export function exportBACStatistique(session: Session, selectionNote?: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const headerY = drawHeader(doc, session);
+  const headerY = drawHeader(doc, session, selectionNote);
 
   const pageW = doc.internal.pageSize.getWidth();
   doc.setFontSize(13);
