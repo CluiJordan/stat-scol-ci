@@ -5,7 +5,6 @@ export function applyElevesToClasses(
   classes: ClassRow[],
   eleves: Eleve[],
   examType: ExamType,
-  zeroIsAbsent: boolean = true,
 ): ClassRow[] {
   if (eleves.length === 0) return classes;
   return classes.map((cls) => {
@@ -18,9 +17,9 @@ export function applyElevesToClasses(
     };
     const g = ce.filter((e) => e.genre === 'M');
     const f = ce.filter((e) => e.genre === 'F');
-    const present = (e: Eleve) => e.points !== null && (!zeroIsAbsent || e.points > 0);
+    const present = (e: Eleve) => !e.absent && e.points !== null;
     const threshold = admisThreshold(examType);
-    const admis = (e: Eleve) => e.points !== null && e.points >= threshold;
+    const admis = (e: Eleve) => !e.absent && e.points !== null && e.points >= threshold;
     return {
       ...cls,
       inscritsGarcon: g.length,

@@ -63,34 +63,34 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const deleteClass = (id: string) => persist({ ...session, classes: session.classes.filter((c) => c.id !== id) });
 
   const addEleve = useCallback((eleve: Omit<Eleve, 'id'>) => {
-    const newEleve: Eleve = { ...eleve, id: uuid() };
+    const newEleve: Eleve = { absent: false, ...eleve, id: uuid() };
     const newEleves = [...session.eleves, newEleve];
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const updateEleve = useCallback((id: string, points: number | null) => {
     const newEleves = session.eleves.map((e) => e.id === id ? { ...e, points } : e);
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const deleteEleve = useCallback((id: string) => {
     const newEleves = session.eleves.filter((e) => e.id !== id);
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const deleteEleves = useCallback((ids: string[]) => {
     const idSet = new Set(ids);
     const newEleves = session.eleves.filter((e) => !idSet.has(e.id));
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
   const updateEleveInfo = useCallback((id: string, updates: Partial<Omit<Eleve, 'id' | 'points'>>) => {
     const newEleves = session.eleves.map((e) => e.id === id ? { ...e, ...updates } : e);
-    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType, session.zeroIsAbsent);
+    const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
   }, [session, persist]);
 
@@ -110,7 +110,9 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
 
     if (result.eleves.length > 0) {
       const existingMatricules = new Set(session.eleves.filter((e) => e.matricule).map((e) => e.matricule));
-      const toAdd = result.eleves.filter((e) => !e.matricule || !existingMatricules.has(e.matricule));
+      const toAdd = result.eleves
+        .filter((e) => !e.matricule || !existingMatricules.has(e.matricule))
+        .map((e) => ({ absent: false as boolean, ...e }));
       const knownClasses = new Set(session.classes.map((c) => c.name));
       const newClassNames = [...new Set(toAdd.map((e) => e.classe))].filter((n) => n && !knownClasses.has(n));
       const newClassRows: ClassRow[] = newClassNames.map((name) => ({
@@ -119,7 +121,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
         presentsGarcon: 0, presentsFille: 0, admisGarcon: 0, admisFille: 0,
       }));
       const allEleves = [...session.eleves, ...toAdd];
-      const allClasses = applyElevesToClasses([...session.classes, ...newClassRows], allEleves, session.examType, session.zeroIsAbsent);
+      const allClasses = applyElevesToClasses([...session.classes, ...newClassRows], allEleves, session.examType);
       persist({ ...session, eleves: allEleves, classes: allClasses });
       if (result.errors.length === 0) setShowImport(false);
     } else if (result.rows.length > 0) {
@@ -206,12 +208,6 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               </div>
               <Field label="Ministère"><TextInput value={session.ministere} upper onChange={(v) => setField('ministere', v)} /></Field>
               <Field label="Session"><TextInput value={session.examSession} upper placeholder="EX: SESSION 2025" onChange={(v) => setField('examSession', v)} /></Field>
-              {session.saisieMode === 'eleves' && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '11px 14px', borderRadius: 4, border: '1px solid var(--line)', userSelect: 'none' }}>
-                  <input type="checkbox" checked={session.zeroIsAbsent} onChange={(e) => persist({ ...session, zeroIsAbsent: e.target.checked })} style={{ width: 14, height: 14, accentColor: 'var(--ink)', flexShrink: 0, cursor: 'pointer' }} />
-                  <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Considérer les points à <strong>0</strong> comme <strong>absents</strong></span>
-                </label>
-              )}
             </div>
           </div>
         )}
@@ -286,7 +282,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               <SectionHead n="03" title="Saisie des données"
                 desc={
                   session.saisieMode === 'eleves'
-                    ? `Entrez les points de chaque élève. Points ≥ ${admisThreshold(session.examType)} = Admis · Points = 0 = Absent.`
+                    ? `Entrez les points de chaque élève. Points ≥ ${admisThreshold(session.examType)} = Admis · 0 = Refusé · Cochez Absent pour marquer un absent.`
                     : session.saisieMode === 'manuel'
                     ? 'Les colonnes grisées sont calculées en direct. Les valeurs impossibles sont signalées en orange.'
                     : 'Choisissez comment vous souhaitez saisir les données.'
@@ -435,7 +431,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkDelete, setShowBulkDelete] = useState(false);
-  const [sortMode, setSortMode] = useState<'classe' | 'alpha'>('classe');
+  const [sortMode, setSortMode] = useState<'classe' | 'alpha' | 'points-desc' | 'points-asc'>('classe');
 
   const toggleSelect = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -474,8 +470,12 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
 
   const totalMatches = groups.reduce((s, g) => s + g.rows.length, 0) + unmatched.length;
 
-  const allSorted = [...groups.flatMap((g) => g.rows), ...unmatched]
-    .sort((a, b) => { const n = a.nom.localeCompare(b.nom, 'fr'); return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr'); });
+  const allSortedBase = [...groups.flatMap((g) => g.rows), ...unmatched];
+  const allSorted = sortMode === 'points-desc'
+    ? [...allSortedBase].sort((a, b) => (b.points ?? -1) - (a.points ?? -1))
+    : sortMode === 'points-asc'
+    ? [...allSortedBase].sort((a, b) => (a.points ?? -1) - (b.points ?? -1))
+    : [...allSortedBase].sort((a, b) => { const n = a.nom.localeCompare(b.nom, 'fr'); return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr'); });
 
   const noEleves = session.eleves.length === 0;
   const noResults = !noEleves && groups.length === 0 && unmatched.length === 0 && !q;
@@ -512,8 +512,9 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
               )}
             </div>
             <div style={{ display: 'flex', border: '1px solid var(--line)', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
-              <button onClick={() => setSortMode('classe')} style={{ padding: '0 11px', height: 34, fontSize: 11, background: sortMode === 'classe' ? 'var(--ink)' : 'transparent', color: sortMode === 'classe' ? '#fff' : 'var(--ink-2)', border: 'none', cursor: 'pointer', fontFamily: 'var(--mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Par classe</button>
-              <button onClick={() => setSortMode('alpha')} style={{ padding: '0 11px', height: 34, fontSize: 11, background: sortMode === 'alpha' ? 'var(--ink)' : 'transparent', color: sortMode === 'alpha' ? '#fff' : 'var(--ink-2)', border: 'none', borderLeft: '1px solid var(--line)', cursor: 'pointer', fontFamily: 'var(--mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>A → Z</button>
+              {([['classe', 'Par classe'], ['alpha', 'A → Z'], ['points-desc', 'Points ↓'], ['points-asc', 'Points ↑']] as const).map(([mode, label]) => (
+                <button key={mode} onClick={() => setSortMode(mode)} style={{ padding: '0 11px', height: 34, fontSize: 11, background: sortMode === mode ? 'var(--ink)' : 'transparent', color: sortMode === mode ? '#fff' : 'var(--ink-2)', border: 'none', borderLeft: mode !== 'classe' ? '1px solid var(--line)' : 'none', cursor: 'pointer', fontFamily: 'var(--mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{label}</button>
+              ))}
             </div>
             <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
             {selected.size > 0 ? (
@@ -527,7 +528,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
             )}
           </div>
 
-          {sortMode === 'alpha' ? (
+          {sortMode !== 'classe' ? (
             allSorted.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun résultat.</p>
@@ -551,13 +552,14 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
                       <th style={eleveThStyle(130, true)}>Classe</th>
                       <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
                       <th style={eleveThStyle(90, false)}>Points</th>
+                      <th style={eleveThStyle(50, true)}>Abs.</th>
                       <th style={eleveThStyle(85, true)}>Statut</th>
                       <th style={{ ...eleveThStyle(72, true), borderRight: 'none' }} />
                     </tr>
                   </thead>
                   <tbody>
                     {allSorted.map((eleve, i) => (
-                      <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} zeroIsAbsent={session.zeroIsAbsent} showClasse />
+                      <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} onToggleAbsent={() => updateEleveInfo(eleve.id, { absent: !eleve.absent })} showClasse />
                     ))}
                   </tbody>
                 </table>
@@ -572,8 +574,8 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
               )}
 
               {groups.map(({ cls, rows, total }) => {
-                const entered = rows.filter((e) => e.points !== null).length;
-                const present = rows.filter((e) => e.points !== null && (!session.zeroIsAbsent || e.points > 0)).length;
+                const entered = rows.filter((e) => e.points !== null || e.absent).length;
+                const present = rows.filter((e) => !e.absent && e.points !== null).length;
                 const threshold = admisThreshold(session.examType);
                 const admis = rows.filter((e) => e.points !== null && e.points >= threshold).length;
                 const progress = total > 0 ? Math.round((eleves.filter((e) => e.classe === cls.name && e.points !== null).length / total) * 100) : 0;
@@ -607,13 +609,14 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
                             <th style={eleveThStyle(120, true)}>Matricule</th>
                             <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
                             <th style={eleveThStyle(90, false)}>Points</th>
+                            <th style={eleveThStyle(50, true)}>Abs.</th>
                             <th style={eleveThStyle(85, true)}>Statut</th>
                             <th style={{ ...eleveThStyle(72, true), borderRight: 'none' }} />
                           </tr>
                         </thead>
                         <tbody>
                           {rows.map((eleve, i) => (
-                            <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} zeroIsAbsent={session.zeroIsAbsent} />
+                            <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} onToggleAbsent={() => updateEleveInfo(eleve.id, { absent: !eleve.absent })} />
                           ))}
                         </tbody>
                       </table>
@@ -702,14 +705,14 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, examType, zeroIsAbsent, onCommit, onDelete, onEdit, isSelected, onToggle, showClasse }: {
+function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, onToggleAbsent, isSelected, onToggle, showClasse }: {
   eleve: Eleve;
   index: number;
   examType: import('../types').ExamType;
-  zeroIsAbsent: boolean;
   onCommit: (id: string, points: number | null) => void;
   onDelete: (eleve: Eleve) => void;
   onEdit: (eleve: Eleve) => void;
+  onToggleAbsent: () => void;
   isSelected: boolean;
   onToggle: () => void;
   showClasse?: boolean;
@@ -733,9 +736,9 @@ function EleveRow({ eleve, index, examType, zeroIsAbsent, onCommit, onDelete, on
 
   const hasError = !isValid(raw);
   const pts = hasError ? null : (raw.trim() === '' ? null : parseFloat(raw.trim().replace(',', '.')));
-  const isAdmis = pts !== null && pts >= threshold;
-  const isAbsent = zeroIsAbsent && pts === 0;
-  const isAjoure = pts !== null && !isAbsent && pts < threshold;
+  const isAbsent = eleve.absent;
+  const isAdmis = !isAbsent && pts !== null && pts >= threshold;
+  const isAjoure = !isAbsent && pts !== null && pts < threshold;
 
   const commit = () => {
     if (hasError) return;
@@ -745,29 +748,30 @@ function EleveRow({ eleve, index, examType, zeroIsAbsent, onCommit, onDelete, on
   const cell: React.CSSProperties = { borderRight: '1px solid var(--line-2)', borderBottom: '1px solid var(--line-2)' };
 
   return (
-    <tr style={{ background: isSelected ? 'var(--orange-w)' : index % 2 ? 'var(--paper-2)' : 'var(--card)' }}>
+    <tr style={{ background: isSelected ? 'var(--orange-w)' : isAbsent ? 'var(--paper-3)' : index % 2 ? 'var(--paper-2)' : 'var(--card)' }}>
       <td style={{ ...cell, width: 36, textAlign: 'center', height: 40 }}>
         <input type="checkbox" checked={isSelected} onChange={onToggle} style={{ cursor: 'pointer', accentColor: 'var(--orange-d)' }} />
       </td>
       <td style={{ ...cell, width: 40, textAlign: 'center', height: 40 }}>
-        <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: eleve.genre === 'M' ? 'var(--gar)' : 'var(--fil)' }} title={eleve.genre === 'M' ? 'Garçon' : 'Fille'} />
+        <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: eleve.genre === 'M' ? 'var(--gar)' : 'var(--fil)', opacity: isAbsent ? 0.4 : 1 }} title={eleve.genre === 'M' ? 'Garçon' : 'Fille'} />
       </td>
-      <td style={{ ...cell, width: 120, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-3)', padding: '0 8px', whiteSpace: 'nowrap' }}>
+      <td style={{ ...cell, width: 120, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-3)', padding: '0 8px', whiteSpace: 'nowrap', opacity: isAbsent ? 0.5 : 1 }}>
         {eleve.matricule || '—'}
       </td>
       {showClasse && (
-        <td style={{ ...cell, width: 130, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-2)', padding: '0 8px', whiteSpace: 'nowrap' }}>
+        <td style={{ ...cell, width: 130, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-2)', padding: '0 8px', whiteSpace: 'nowrap', opacity: isAbsent ? 0.5 : 1 }}>
           {eleve.classe}
         </td>
       )}
-      <td style={{ ...cell, padding: '0 12px', fontSize: 13 }}>
+      <td style={{ ...cell, padding: '0 12px', fontSize: 13, opacity: isAbsent ? 0.5 : 1 }}>
         <span style={{ fontWeight: 600 }}>{eleve.nom}</span>
         {eleve.prenoms && <span style={{ fontWeight: 400, color: 'var(--ink-2)', fontSize: 12 }}> {eleve.prenoms}</span>}
       </td>
       <td style={{ ...cell, width: 90, padding: 0 }}>
         <input
           type="text" inputMode="numeric"
-          value={raw} placeholder="—"
+          value={isAbsent ? '' : raw} placeholder="—"
+          disabled={isAbsent}
           data-points-input
           onChange={(e) => setRaw(e.target.value)}
           onBlur={commit}
@@ -775,20 +779,31 @@ function EleveRow({ eleve, index, examType, zeroIsAbsent, onCommit, onDelete, on
             if (e.key === 'Enter') {
               if (hasError) return;
               commit();
-              const all = Array.from(document.querySelectorAll<HTMLInputElement>('[data-points-input]'));
+              const all = Array.from(document.querySelectorAll<HTMLInputElement>('[data-points-input]:not(:disabled)'));
               const next = all[all.indexOf(e.target as HTMLInputElement) + 1];
               if (next) next.focus(); else (e.target as HTMLInputElement).blur();
             }
           }}
           style={{
             width: '100%', height: 40, textAlign: 'center', border: 'none',
-            background: hasError ? 'var(--orange-w)' : isAdmis ? 'var(--green-w)' : isAbsent ? 'var(--paper-3)' : 'transparent',
+            background: isAbsent ? 'transparent' : hasError ? 'var(--orange-w)' : isAdmis ? 'var(--green-w)' : 'transparent',
             fontFamily: 'var(--mono)', fontSize: 13,
             fontWeight: isAdmis ? 700 : 400,
             color: hasError ? 'var(--orange-d)' : isAdmis ? 'var(--green-d)' : 'var(--ink)',
             outline: 'none',
-            boxShadow: hasError ? 'inset 0 0 0 1.5px var(--orange-d)' : isAdmis ? 'inset 0 0 0 1.5px var(--green-d)' : 'none',
+            boxShadow: hasError && !isAbsent ? 'inset 0 0 0 1.5px var(--orange-d)' : isAdmis ? 'inset 0 0 0 1.5px var(--green-d)' : 'none',
+            cursor: isAbsent ? 'not-allowed' : 'text',
+            opacity: isAbsent ? 0.35 : 1,
           }}
+        />
+      </td>
+      <td style={{ ...cell, width: 50, textAlign: 'center' }}>
+        <input
+          type="checkbox"
+          checked={isAbsent}
+          onChange={onToggleAbsent}
+          title="Marquer absent"
+          style={{ cursor: 'pointer', accentColor: 'var(--ink)', width: 14, height: 14 }}
         />
       </td>
       <td style={{ ...cell, width: 85, textAlign: 'center' }}>
@@ -881,6 +896,7 @@ function AddEleveModal({ classes, onSave, onClose }: {
       genre,
       classe: classe.trim().toUpperCase(),
       points: points === '' ? null : Math.max(0, parseInt(points, 10) || 0),
+      absent: false,
     });
   };
 

@@ -6,7 +6,11 @@ export function getSessions(): Session[] {
   try {
     const raw = localStorage.getItem(KEY);
     const sessions: Array<Session & { eleves?: Eleve[] }> = raw ? JSON.parse(raw) : [];
-    return sessions.map((s) => ({ ...s, eleves: s.eleves ?? [], saisieMode: s.saisieMode ?? null, zeroIsAbsent: s.zeroIsAbsent ?? true }));
+    return sessions.map((s) => ({
+      ...s,
+      saisieMode: s.saisieMode ?? null,
+      eleves: (s.eleves ?? []).map((e: Eleve) => ({ absent: false, ...e })),
+    }));
   } catch {
     return [];
   }

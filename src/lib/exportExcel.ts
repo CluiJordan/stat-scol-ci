@@ -10,9 +10,9 @@ export function exportElevesResultats(session: Session) {
   });
   const rows = sorted.map((e, i) => {
     const threshold = admisThreshold(session.examType);
-    const statut = e.points === null ? ''
+    const statut = e.absent ? (e.genre === 'F' ? 'ABSENTE' : 'ABSENT')
+      : e.points === null ? ''
       : e.points >= threshold ? (e.genre === 'F' ? 'ADMISE' : 'ADMIS')
-      : (session.zeroIsAbsent && e.points === 0) ? (e.genre === 'F' ? 'ABSENTE' : 'ABSENT')
       : (e.genre === 'F' ? 'REFUSÉE' : 'REFUSÉ');
     return [i + 1, e.matricule || '', e.nom, e.prenoms, e.genre, e.classe, e.points ?? '', statut];
   });

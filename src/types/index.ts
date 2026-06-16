@@ -13,6 +13,7 @@ export interface Eleve {
   genre: 'M' | 'F';
   classe: string;
   points: number | null;
+  absent: boolean;
 }
 
 export interface ClassRow {
@@ -40,7 +41,6 @@ export interface Session {
   examType: ExamType;
   examSession: string;
   saisieMode: 'eleves' | 'manuel' | null;
-  zeroIsAbsent: boolean;
   centres: Centre[];
   classes: ClassRow[];
   eleves: Eleve[];
