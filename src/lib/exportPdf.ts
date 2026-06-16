@@ -71,22 +71,40 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   let cellPad: number;
 
   if (isGrand) {
-    const availableH = pageH - summaryEndY - 8;
-    const totalRows = admis.length + 1;
-    const rowH = availableH / totalRows;
-    tableSize = Math.max(8.5, Math.min(20, rowH / 0.62));
+    // Fixed column widths: N°=16, Matricule=48 → remaining split evenly for Nom and Prénoms
+    const tableW = pageW - 28;
+    const fixedW = 16 + 48;
+    const flexW = (tableW - fixedW) / 2; // available width per flex column
+
+    // Find largest font size where every Nom and Prénoms fits on one line
+    tableSize = 7;
+    outer: for (let size = 24; size >= 7; size -= 0.5) {
+      const pad = Math.max(2, size * 0.11);
+      const contentW = flexW - 2 * pad;
+      doc.setFontSize(size);
+      for (const e of admis) {
+        doc.setFont('helvetica', 'bold');
+        if (doc.getTextWidth(e.nom) > contentW) continue outer;
+        doc.setFont('helvetica', 'normal');
+        if (doc.getTextWidth(e.prenoms) > contentW) continue outer;
+      }
+      tableSize = size;
+      break;
+    }
     cellPad = Math.max(2, tableSize * 0.11);
   } else {
     tableSize = 8.5;
     cellPad = 2.5;
   }
 
-  // Grand format: no Points column (for display — fits more rows); normal: include Points
+  // Grand format: no Points column (for display); normal: include Points
   const body = admis.map((e, i) =>
     isGrand
       ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms]
       : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, String(e.points ?? '')]
   );
+
+  const grandFlexW = isGrand ? ((pageW - 28 - 16 - 48) / 2) : 0;
 
   autoTable(doc, {
     startY: summaryEndY,
@@ -101,8 +119,8 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
       ? {
           0: { halign: 'center', cellWidth: 16 },
           1: { halign: 'center', cellWidth: 48 },
-          2: { halign: 'left', fontStyle: 'bold' },
-          3: { halign: 'left' },
+          2: { halign: 'left', fontStyle: 'bold', cellWidth: grandFlexW },
+          3: { halign: 'left', cellWidth: grandFlexW },
         }
       : {
           0: { halign: 'center', cellWidth: 12 },
