@@ -9,7 +9,7 @@ export function getSessions(): Session[] {
     return sessions.map((s) => ({
       ...s,
       saisieMode: s.saisieMode ?? null,
-      eleves: (s.eleves ?? []).map((e: Eleve) => ({ absent: false, ...e })),
+      eleves: (s.eleves ?? []).map((e: Eleve) => { const p = e as Eleve & { absent?: boolean }; return { ...e, absent: p.absent ?? false }; }),
     }));
   } catch {
     return [];

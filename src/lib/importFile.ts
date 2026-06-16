@@ -69,6 +69,7 @@ export function importFromFile(file: File, examType: ExamType): Promise<ImportRe
               genre,
               classe,
               points: null,
+              absent: false,
             });
           });
         } else {

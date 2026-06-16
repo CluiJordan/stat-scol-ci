@@ -63,7 +63,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
   const deleteClass = (id: string) => persist({ ...session, classes: session.classes.filter((c) => c.id !== id) });
 
   const addEleve = useCallback((eleve: Omit<Eleve, 'id'>) => {
-    const newEleve: Eleve = { absent: false, ...eleve, id: uuid() };
+    const newEleve: Eleve = { ...eleve, id: uuid() };
     const newEleves = [...session.eleves, newEleve];
     const newClasses = applyElevesToClasses(session.classes, newEleves, session.examType);
     persist({ ...session, eleves: newEleves, classes: newClasses });
@@ -112,7 +112,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
       const existingMatricules = new Set(session.eleves.filter((e) => e.matricule).map((e) => e.matricule));
       const toAdd = result.eleves
         .filter((e) => !e.matricule || !existingMatricules.has(e.matricule))
-        .map((e) => ({ absent: false as boolean, ...e }));
+        .map((e) => ({ ...e }));
       const knownClasses = new Set(session.classes.map((c) => c.name));
       const newClassNames = [...new Set(toAdd.map((e) => e.classe))].filter((n) => n && !knownClasses.has(n));
       const newClassRows: ClassRow[] = newClassNames.map((name) => ({

@@ -20,7 +20,6 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   const doc = new jsPDF({ orientation: isGrand ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
   const headerY = drawHeader(doc, session, selectionNote);
   const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
 
   const titleSize = isGrand ? 16 : 13;
   const subSize = isGrand ? 10 : 8.5;
@@ -131,8 +130,23 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
         },
   });
 
+  drawDirecteurFooter(doc);
   const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
   doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
+}
+
+function drawDirecteurFooter(doc: jsPDF) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const x = pageW - 14;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LE DIRECTEUR', x, pageH - 24, { align: 'right' });
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Fait à _________________________, le _________________________', x, pageH - 14, { align: 'right' });
 }
 
 // Returns bottom Y of the header block so callers can position content dynamically
@@ -237,6 +251,7 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
     didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], body.length - 1),
   });
 
+  drawDirecteurFooter(doc);
   doc.save(`BEPC_Statistique_Generale_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
@@ -299,6 +314,7 @@ export function exportBEPCParEtablissement(session: Session) {
     currentY = (doc as any).lastAutoTable.finalY + 8;
   });
 
+  drawDirecteurFooter(doc);
   doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
@@ -355,5 +371,6 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
     didParseCell: (data) => applyColColors(data, [6, 7, 8, 9], [10, 11, 12, 13], body.length - 1),
   });
 
+  drawDirecteurFooter(doc);
   doc.save(`BAC_Statistique_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
