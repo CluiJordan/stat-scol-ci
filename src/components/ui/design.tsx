@@ -67,10 +67,10 @@ export function Ticker({
 }) {
   const v = useCountUp(value, duration);
   const factor = Math.pow(10, decimals);
-  const rounded = Math.round(v * factor) / factor;
+  const truncated = Math.trunc(v * factor) / factor;
   const txt = decimals > 0
-    ? rounded.toFixed(decimals).replace('.', ',')
-    : Math.round(rounded).toLocaleString('fr-FR');
+    ? truncated.toFixed(decimals).replace('.', ',')
+    : Math.trunc(truncated).toLocaleString('fr-FR');
   return <span className={className} style={style}>{txt}</span>;
 }
 
@@ -243,20 +243,20 @@ export function Donut({ a, b, labelA, labelB, colorA = 'var(--gar)', colorB = 'v
         </text>
       </svg>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <DonutLegend color={colorA} label={labelA} value={a} pct={actualTotal === 0 ? 0 : Math.round(pa * 100)} />
-        <DonutLegend color={colorB} label={labelB} value={b} pct={actualTotal === 0 ? 0 : Math.round((1 - pa) * 100)} />
+        <DonutLegend color={colorA} label={labelA} value={a} pct={actualTotal === 0 ? '0,00%' : (Math.trunc(pa * 10000) / 100).toFixed(2).replace('.', ',') + '%'} />
+        <DonutLegend color={colorB} label={labelB} value={b} pct={actualTotal === 0 ? '0,00%' : (Math.trunc((1 - pa) * 10000) / 100).toFixed(2).replace('.', ',') + '%'} />
       </div>
     </div>
   );
 }
 
-function DonutLegend({ color, label, value, pct }: { color: string; label: string; value: number; pct: number }) {
+function DonutLegend({ color, label, value, pct }: { color: string; label: string; value: number; pct: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
       <span style={{ width: 10, height: 10, background: color, borderRadius: 2, alignSelf: 'center', flexShrink: 0 }} />
       <span className="mono" style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-2)', minWidth: 60 }}>{label}</span>
       <span className="display tnum" style={{ fontSize: 22 }}>{value}</span>
-      <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{pct}%</span>
+      <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{pct}</span>
     </div>
   );
 }

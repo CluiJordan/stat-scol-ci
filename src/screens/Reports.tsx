@@ -194,7 +194,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
             <div className="eyebrow rise">{isBac ? 'Baccalauréat' : 'BEPC'} · {session.examSession}{!allSelected ? ' · sélection partielle' : ''}</div>
             <div className="rise" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6, animationDelay: 'calc(.05s * var(--speed))' }}>
               <span className="display tnum" style={{ fontSize: 'clamp(96px, 19vw, 220px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', lineHeight: 0.9 }}>
-                <Ticker value={totals.tauxTotal * 100} decimals={1} duration={1300} />
+                <Ticker value={totals.tauxTotal * 100} decimals={2} duration={1300} />
               </span>
               <span className="display" style={{ fontSize: 'clamp(34px, 6vw, 64px)', color: good ? 'var(--green-d)' : 'var(--orange-d)', marginTop: 6 }}>%</span>
             </div>
@@ -302,7 +302,7 @@ function GenderFig({ color, dot, label, value, sub }: { color: string; dot: stri
       </div>
       <div style={{ textAlign: 'right' }}>
         <span className="display tnum" style={{ fontSize: 'clamp(28px, 5vw, 42px)', color }}>
-          <Ticker value={value * 100} decimals={1} duration={1300} />%
+          <Ticker value={value * 100} decimals={2} duration={1300} />%
         </span>
         <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 2 }}>{sub}</div>
       </div>
