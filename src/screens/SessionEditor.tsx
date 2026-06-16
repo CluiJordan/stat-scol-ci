@@ -429,6 +429,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [sortMode, setSortMode] = useState<'classe' | 'alpha'>('classe');
 
   const toggleSelect = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -467,6 +468,9 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
 
   const totalMatches = groups.reduce((s, g) => s + g.rows.length, 0) + unmatched.length;
 
+  const allSorted = [...groups.flatMap((g) => g.rows), ...unmatched]
+    .sort((a, b) => { const n = a.nom.localeCompare(b.nom, 'fr'); return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr'); });
+
   const noEleves = session.eleves.length === 0;
   const noResults = !noEleves && groups.length === 0 && unmatched.length === 0 && !q;
 
@@ -501,6 +505,10 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
                 </span>
               )}
             </div>
+            <div style={{ display: 'flex', border: '1px solid var(--line)', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
+              <button onClick={() => setSortMode('classe')} style={{ padding: '0 11px', height: 34, fontSize: 11, background: sortMode === 'classe' ? 'var(--ink)' : 'transparent', color: sortMode === 'classe' ? '#fff' : 'var(--ink-2)', border: 'none', cursor: 'pointer', fontFamily: 'var(--mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Par classe</button>
+              <button onClick={() => setSortMode('alpha')} style={{ padding: '0 11px', height: 34, fontSize: 11, background: sortMode === 'alpha' ? 'var(--ink)' : 'transparent', color: sortMode === 'alpha' ? '#fff' : 'var(--ink-2)', border: 'none', borderLeft: '1px solid var(--line)', cursor: 'pointer', fontFamily: 'var(--mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>A → Z</button>
+            </div>
             <button className="btn btn--sm btn--solid" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowAdd(true)}>+ Ajouter un élève</button>
             {selected.size > 0 ? (
               <button className="btn btn--sm btn--danger" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowBulkDelete(true)}>
@@ -513,86 +521,126 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
             )}
           </div>
 
-          {noResults && (
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun élève correspondant aux classes déclarées. Vérifiez les noms de classe.</p>
-            </div>
-          )}
-
-          {groups.map(({ cls, rows, total }) => {
-        const entered = rows.filter((e) => e.points !== null).length;
-        const present = rows.filter((e) => e.points !== null && e.points > 0).length;
-        const threshold = admisThreshold(session.examType);
-        const admis = rows.filter((e) => e.points !== null && e.points >= threshold).length;
-        const progress = total > 0 ? Math.round((eleves.filter((e) => e.classe === cls.name && e.points !== null).length / total) * 100) : 0;
-        return (
-          <div key={cls.id}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '10px 0', borderBottom: '2px solid var(--ink)' }}>
-              <span className="display" style={{ fontSize: 16, fontWeight: 700 }}>{cls.name}</span>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{q ? `${rows.length}/${total}` : `${total} inscrits`}</span>
-              {entered > 0 && (
-                <>
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--ink-2)' }}>· {present} présents</span>
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--green-d)', fontWeight: 700 }}>· {admis} admis</span>
-                </>
+          {sortMode === 'alpha' ? (
+            allSorted.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun résultat.</p>
+              </div>
+            ) : (
+              <div className="scroll-x" style={{ border: '1px solid var(--line)', borderRadius: 4 }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--ink)' }}>
+                      <th style={{ ...eleveThStyle(36, true), padding: '9px 0' }}>
+                        <input
+                          type="checkbox"
+                          checked={allSorted.length > 0 && allSorted.every((e) => selected.has(e.id))}
+                          ref={(el) => { if (el) el.indeterminate = allSorted.some((e) => selected.has(e.id)) && !allSorted.every((e) => selected.has(e.id)); }}
+                          onChange={() => toggleGroupAll(allSorted.map((e) => e.id))}
+                          style={{ cursor: 'pointer', accentColor: 'var(--orange-d)' }}
+                        />
+                      </th>
+                      <th style={eleveThStyle(40, true)}>G/F</th>
+                      <th style={eleveThStyle(110, true)}>Matricule</th>
+                      <th style={eleveThStyle(130, true)}>Classe</th>
+                      <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
+                      <th style={eleveThStyle(90, false)}>Points</th>
+                      <th style={eleveThStyle(85, true)}>Statut</th>
+                      <th style={{ ...eleveThStyle(72, true), borderRight: 'none' }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allSorted.map((eleve, i) => (
+                      <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} showClasse />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : (
+            <>
+              {noResults && (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <p className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Aucun élève correspondant aux classes déclarées. Vérifiez les noms de classe.</p>
+                </div>
               )}
-              <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>{progress}% saisi</span>
-            </div>
-            <div className="scroll-x" style={{ border: '1px solid var(--line)', borderTop: 'none', borderRadius: '0 0 3px 3px' }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 576 }}>
-                <thead>
-                  <tr style={{ background: 'var(--ink)' }}>
-                    <th style={{ ...eleveThStyle(36, true), padding: '9px 0' }}>
-                      <input
-                        type="checkbox"
-                        checked={rows.length > 0 && rows.every((e) => selected.has(e.id))}
-                        ref={(el) => { if (el) el.indeterminate = rows.some((e) => selected.has(e.id)) && !rows.every((e) => selected.has(e.id)); }}
-                        onChange={() => toggleGroupAll(rows.map((e) => e.id))}
-                        style={{ cursor: 'pointer', accentColor: 'var(--orange-d)' }}
-                      />
-                    </th>
-                    <th style={eleveThStyle(40, true)}>G/F</th>
-                    <th style={eleveThStyle(120, true)}>Matricule</th>
-                    <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
-                    <th style={eleveThStyle(90, false)}>Points</th>
-                    <th style={eleveThStyle(85, true)}>Statut</th>
-                    <th style={{ ...eleveThStyle(72, true), borderRight: 'none' }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((eleve, i) => (
-                    <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
 
-      {unmatched.length > 0 && (
-        <div>
-          <div style={{ padding: '8px 0', borderBottom: '2px solid var(--orange-d)' }}>
-            <span className="mono" style={{ fontSize: 11, color: 'var(--orange-d)' }}>⚠ {unmatched.length} élève(s) sans classe correspondante dans cette session</span>
-          </div>
-          <div className="scroll-x" style={{ border: '1px solid var(--orange-d)', borderRadius: '0 0 3px 3px', borderTop: 'none' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 420, fontSize: 13 }}>
-              <tbody>
-                {unmatched.map((eleve, i) => (
-                  <tr key={eleve.id} style={{ background: i % 2 ? 'var(--orange-w)' : 'var(--card)', borderBottom: '1px solid var(--line-2)' }}>
-                    <td style={{ width: 40, textAlign: 'center', height: 38 }}>
-                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: eleve.genre === 'M' ? 'var(--gar)' : 'var(--fil)' }} />
-                    </td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-3)', padding: '0 8px', width: 110 }}>{eleve.matricule || '—'}</td>
-                    <td style={{ padding: '0 12px', fontWeight: 600 }}>{eleve.nom} <span style={{ fontWeight: 400, color: 'var(--ink-2)' }}>{eleve.prenoms}</span></td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--orange-d)', padding: '0 8px', whiteSpace: 'nowrap' }}>{eleve.classe}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+              {groups.map(({ cls, rows, total }) => {
+                const entered = rows.filter((e) => e.points !== null).length;
+                const present = rows.filter((e) => e.points !== null && e.points > 0).length;
+                const threshold = admisThreshold(session.examType);
+                const admis = rows.filter((e) => e.points !== null && e.points >= threshold).length;
+                const progress = total > 0 ? Math.round((eleves.filter((e) => e.classe === cls.name && e.points !== null).length / total) * 100) : 0;
+                return (
+                  <div key={cls.id}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '10px 0', borderBottom: '2px solid var(--ink)' }}>
+                      <span className="display" style={{ fontSize: 16, fontWeight: 700 }}>{cls.name}</span>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{q ? `${rows.length}/${total}` : `${total} inscrits`}</span>
+                      {entered > 0 && (
+                        <>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--ink-2)' }}>· {present} présents</span>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--green-d)', fontWeight: 700 }}>· {admis} admis</span>
+                        </>
+                      )}
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>{progress}% saisi</span>
+                    </div>
+                    <div className="scroll-x" style={{ border: '1px solid var(--line)', borderTop: 'none', borderRadius: '0 0 3px 3px' }}>
+                      <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 576 }}>
+                        <thead>
+                          <tr style={{ background: 'var(--ink)' }}>
+                            <th style={{ ...eleveThStyle(36, true), padding: '9px 0' }}>
+                              <input
+                                type="checkbox"
+                                checked={rows.length > 0 && rows.every((e) => selected.has(e.id))}
+                                ref={(el) => { if (el) el.indeterminate = rows.some((e) => selected.has(e.id)) && !rows.every((e) => selected.has(e.id)); }}
+                                onChange={() => toggleGroupAll(rows.map((e) => e.id))}
+                                style={{ cursor: 'pointer', accentColor: 'var(--orange-d)' }}
+                              />
+                            </th>
+                            <th style={eleveThStyle(40, true)}>G/F</th>
+                            <th style={eleveThStyle(120, true)}>Matricule</th>
+                            <th style={{ ...eleveThStyle(undefined, true), textAlign: 'left', padding: '9px 12px', color: '#fff' }}>Nom &amp; Prénoms</th>
+                            <th style={eleveThStyle(90, false)}>Points</th>
+                            <th style={eleveThStyle(85, true)}>Statut</th>
+                            <th style={{ ...eleveThStyle(72, true), borderRight: 'none' }} />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((eleve, i) => (
+                            <EleveRow key={eleve.id} eleve={eleve} index={i} examType={session.examType} onCommit={updateEleve} onDelete={setPendingDeleteEleve} onEdit={setEditingEleve} isSelected={selected.has(eleve.id)} onToggle={() => toggleSelect(eleve.id)} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {unmatched.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 0', borderBottom: '2px solid var(--orange-d)' }}>
+                    <span className="mono" style={{ fontSize: 11, color: 'var(--orange-d)' }}>⚠ {unmatched.length} élève(s) sans classe correspondante dans cette session</span>
+                  </div>
+                  <div className="scroll-x" style={{ border: '1px solid var(--orange-d)', borderRadius: '0 0 3px 3px', borderTop: 'none' }}>
+                    <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 420, fontSize: 13 }}>
+                      <tbody>
+                        {unmatched.map((eleve, i) => (
+                          <tr key={eleve.id} style={{ background: i % 2 ? 'var(--orange-w)' : 'var(--card)', borderBottom: '1px solid var(--line-2)' }}>
+                            <td style={{ width: 40, textAlign: 'center', height: 38 }}>
+                              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: eleve.genre === 'M' ? 'var(--gar)' : 'var(--fil)' }} />
+                            </td>
+                            <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-3)', padding: '0 8px', width: 110 }}>{eleve.matricule || '—'}</td>
+                            <td style={{ padding: '0 12px', fontWeight: 600 }}>{eleve.nom} <span style={{ fontWeight: 400, color: 'var(--ink-2)' }}>{eleve.prenoms}</span></td>
+                            <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--orange-d)', padding: '0 8px', whiteSpace: 'nowrap' }}>{eleve.classe}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
 
@@ -648,7 +696,7 @@ function eleveThStyle(w: number | undefined, dim: boolean): React.CSSProperties 
   };
 }
 
-function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelected, onToggle }: {
+function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelected, onToggle, showClasse }: {
   eleve: Eleve;
   index: number;
   examType: import('../types').ExamType;
@@ -657,6 +705,7 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelect
   onEdit: (eleve: Eleve) => void;
   isSelected: boolean;
   onToggle: () => void;
+  showClasse?: boolean;
 }) {
   const [raw, setRaw] = useState(() => eleve.points === null ? '' : String(eleve.points));
 
@@ -699,6 +748,11 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, isSelect
       <td style={{ ...cell, width: 120, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-3)', padding: '0 8px', whiteSpace: 'nowrap' }}>
         {eleve.matricule || '—'}
       </td>
+      {showClasse && (
+        <td style={{ ...cell, width: 130, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-2)', padding: '0 8px', whiteSpace: 'nowrap' }}>
+          {eleve.classe}
+        </td>
+      )}
       <td style={{ ...cell, padding: '0 12px', fontSize: 13 }}>
         <span style={{ fontWeight: 600 }}>{eleve.nom}</span>
         {eleve.prenoms && <span style={{ fontWeight: 400, color: 'var(--ink-2)', fontSize: 12 }}> {eleve.prenoms}</span>}
