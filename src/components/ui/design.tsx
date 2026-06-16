@@ -67,10 +67,10 @@ export function Ticker({
 }) {
   const v = useCountUp(value, duration);
   const factor = Math.pow(10, decimals);
-  const truncated = Math.trunc(v * factor) / factor;
+  const rounded = Math.round(v * factor) / factor;
   const txt = decimals > 0
-    ? truncated.toFixed(decimals).replace('.', ',')
-    : Math.trunc(truncated).toLocaleString('fr-FR');
+    ? rounded.toFixed(decimals).replace('.', ',')
+    : Math.round(rounded).toLocaleString('fr-FR');
   return <span className={className} style={style}>{txt}</span>;
 }
 
@@ -243,8 +243,8 @@ export function Donut({ a, b, labelA, labelB, colorA = 'var(--gar)', colorB = 'v
         </text>
       </svg>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <DonutLegend color={colorA} label={labelA} value={a} pct={actualTotal === 0 ? '0,00%' : (Math.trunc(pa * 10000) / 100).toFixed(2).replace('.', ',') + '%'} />
-        <DonutLegend color={colorB} label={labelB} value={b} pct={actualTotal === 0 ? '0,00%' : (Math.trunc((1 - pa) * 10000) / 100).toFixed(2).replace('.', ',') + '%'} />
+        <DonutLegend color={colorA} label={labelA} value={a} pct={actualTotal === 0 ? '0,00%' : (Math.round(pa * 10000) / 100).toFixed(2).replace('.', ',') + '%'} />
+        <DonutLegend color={colorB} label={labelB} value={b} pct={actualTotal === 0 ? '0,00%' : (Math.round((1 - pa) * 10000) / 100).toFixed(2).replace('.', ',') + '%'} />
       </div>
     </div>
   );

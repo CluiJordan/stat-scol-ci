@@ -161,6 +161,5 @@ export function computeTotals(rows: ComputedRow[], examType: ExamType): Computed
 }
 
 export function pct(value: number): string {
-  const truncated = Math.trunc(value * 10000) / 100;
-  return truncated.toFixed(2).replace('.', ',') + '%';
+  return (value * 100).toFixed(2).replace('.', ',') + '%';
 }
