@@ -4,12 +4,17 @@ import type { Session, Centre } from '../types';
 import { computeRow, computeTotals, pct, admisThreshold } from './calculations';
 
 export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string) {
+  const isBac = session.examType === 'BAC';
   const admis = (session.eleves ?? [])
     .filter((e) => e.points !== null && e.points >= admisThreshold(session.examType))
     .sort((a, b) => {
       const n = a.nom.localeCompare(b.nom, 'fr');
       return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr');
     });
+
+  // Compute stats from classes
+  const computedRows = session.classes.map((c) => computeRow(c, session.examType));
+  const totals = computeTotals(computedRows, session.examType);
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const headerY = drawHeader(doc, session, selectionNote);
@@ -18,26 +23,54 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   const isGrand = format === 'grand';
   const titleSize = isGrand ? 16 : 13;
   const subSize = isGrand ? 10 : 8.5;
+
+  let y = headerY + 8;
+  doc.setFontSize(titleSize);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LISTE DES ADMIS', pageW / 2, y, { align: 'center' });
+
+  y += 7;
+  doc.setFontSize(subSize);
+  doc.setFont('helvetica', 'normal');
+  const sessionYear = session.anneeScolaire?.split(/[-–]/).at(-1)?.trim() ?? session.examSession ?? '';
+  doc.text(`${session.examType} session ${sessionYear}`, pageW / 2, y, { align: 'center' });
+
+  y += 6;
+  doc.setFont('helvetica', 'italic');
+  doc.text(`${admis.length} admis`, pageW / 2, y, { align: 'center' });
+
+  // Summary stats table (inscrits / présents / admis / taux — total + par genre)
+  y += 5;
+  const statsHead = [['', 'Inscrits', 'Présents', 'Admis', 'Taux d\'admission']];
+  const statsBody = [
+    ['Total', totals.inscritsTotal, totals.presentsTotal, totals.admisTotal, pct(totals.tauxTotal)],
+    ['Garçons', totals.inscritsGarcon, isBac ? totals.presentsGarcon : '—', totals.admisGarcon, pct(totals.tauxGarcon)],
+    ['Filles', totals.inscritsFille, isBac ? totals.presentsFille : '—', totals.admisFille, pct(totals.tauxFille)],
+  ];
+  autoTable(doc, {
+    startY: y,
+    head: statsHead,
+    body: statsBody,
+    styles: { fontSize: 8, cellPadding: 2.5, halign: 'center' },
+    headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
+    bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
+    columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 24 } },
+    didParseCell: (data) => {
+      if (data.section !== 'body') return;
+      if (data.row.index === 0) { data.cell.styles.fillColor = [230, 230, 230]; data.cell.styles.fontStyle = 'bold'; }
+      else if (data.row.index === 1) { data.cell.styles.fillColor = [239, 246, 255]; }
+      else { data.cell.styles.fillColor = [253, 242, 248]; }
+    },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const summaryEndY = (doc as any).lastAutoTable.finalY + 8;
+
   let tableSize: number;
   let cellPad: number;
 
-  doc.setFontSize(titleSize);
-  doc.setFont('helvetica', 'bold');
-  doc.text('LISTE DES ADMIS', pageW / 2, headerY + 8, { align: 'center' });
-
-  doc.setFontSize(subSize);
-  doc.setFont('helvetica', 'normal');
-  // Derive the session year from the second part of anneeScolaire (e.g. "2025-2026" → "2026")
-  const sessionYear = session.anneeScolaire?.split(/[-–]/).at(-1)?.trim() ?? session.examSession ?? '';
-  const sub = `${session.examType} session ${sessionYear}`;
-  doc.text(sub, pageW / 2, headerY + 15, { align: 'center' });
-
-  doc.setFont('helvetica', 'italic');
-  doc.text(`Total : ${admis.length} admis`, pageW / 2, headerY + 21, { align: 'center' });
-
   if (isGrand) {
-    // Fill available vertical space so the font is as large as possible
-    const availableH = 297 - (headerY + 26) - 8;
+    const availableH = 297 - summaryEndY - 8;
     const totalRows = admis.length + 1;
     const rowH = availableH / totalRows;
     tableSize = Math.max(8.5, Math.min(20, rowH / 0.62));
@@ -56,7 +89,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   ]);
 
   autoTable(doc, {
-    startY: headerY + 26,
+    startY: summaryEndY,
     head: [['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
     ...(isGrand ? { tableWidth: pageW - 28 } : {}),
