@@ -38,22 +38,28 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
 
   let tableSize: number;
   let cellPad: number;
+  let grandNumW = 16;
   let grandNomW = 0;
   let grandPrenomW = 0;
 
   if (isGrand) {
     const tableW = pageW - 28;
-    const fixedW = 16 + 48; // N° + Matricule
-    const totalFlex = tableW - fixedW;
+    const matW = 48; // Matricule toujours fixe
 
     tableSize = 7;
-    grandNomW = totalFlex / 2;
-    grandPrenomW = totalFlex / 2;
+    grandNumW = 16;
+    grandNomW = (tableW - 16 - matW) / 2;
+    grandPrenomW = grandNomW;
 
     outer: for (let size = 24; size >= 7; size -= 0.5) {
       const pad = Math.max(2, size * 0.11);
       doc.setFontSize(size);
 
+      // Largeur minimale pour la colonne N° (ex: "001", "099", "100")
+      doc.setFont('helvetica', 'normal');
+      const numNeeded = doc.getTextWidth(String(admis.length).padStart(3, '0')) + 2 * pad;
+
+      // Largeur minimale Nom
       doc.setFont('helvetica', 'bold');
       let maxNomW = 0;
       for (const e of admis) {
@@ -61,6 +67,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
         if (w > maxNomW) maxNomW = w;
       }
 
+      // Largeur minimale Prénoms
       doc.setFont('helvetica', 'normal');
       let maxPrenomW = 0;
       for (const e of admis) {
@@ -71,11 +78,12 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
       const nomNeeded = maxNomW + 2 * pad;
       const prenomNeeded = maxPrenomW + 2 * pad;
 
-      if (nomNeeded + prenomNeeded > totalFlex) continue outer;
+      if (numNeeded + matW + nomNeeded + prenomNeeded > tableW) continue outer;
 
       tableSize = size;
+      grandNumW = numNeeded;
       grandNomW = nomNeeded;
-      grandPrenomW = totalFlex - nomNeeded;
+      grandPrenomW = tableW - numNeeded - matW - nomNeeded;
       break;
     }
     cellPad = Math.max(2, tableSize * 0.11);
@@ -101,7 +109,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
     alternateRowStyles: { fillColor: [248, 248, 248] },
     columnStyles: isGrand
       ? {
-          0: { halign: 'center', cellWidth: 16 },
+          0: { halign: 'center', cellWidth: grandNumW },
           1: { halign: 'center', cellWidth: 48 },
           2: { halign: 'left', fontStyle: 'bold', cellWidth: grandNomW },
           3: { halign: 'left', cellWidth: grandPrenomW },
@@ -123,19 +131,19 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
 function drawDirecteurFooter(doc: jsPDF, nomDirecteur?: string) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const x = pageW - 14;
+  const x = pageW - 22; // recule du bord droit
 
   // Date (au-dessus)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('Fait à _________________________, le _________________________', x, pageH - 32, { align: 'right' });
+  doc.text('Fait à _________________________, le _________________________', x, pageH - 38, { align: 'right' });
 
   // LE DIRECTEUR
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('LE DIRECTEUR', x, pageH - 24, { align: 'right' });
+  doc.text('LE DIRECTEUR', x, pageH - 30, { align: 'right' });
 
-  // Espace de ~14mm pour signature, puis le nom
+  // ~20mm d'espace pour la signature, puis le nom
   if (nomDirecteur) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
