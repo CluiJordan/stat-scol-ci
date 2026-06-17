@@ -100,6 +100,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
 
   autoTable(doc, {
     startY: tableStartY,
+    margin: { bottom: 44 }, // réserve de la place pour le footer (date + LE DIRECTEUR + nom)
     head: [isGrand ? ['N°', 'Matricule', 'Nom', 'Prénoms'] : ['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
     tableWidth: pageW - 28,
@@ -244,6 +245,7 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
 
   autoTable(doc, {
     startY: headerY + 14,
+    margin: { bottom: 44 },
     head,
     body,
     styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
@@ -301,6 +303,7 @@ export function exportBEPCParEtablissement(session: Session) {
 
     autoTable(doc, {
       startY: currentY,
+      margin: { bottom: 44 },
       head: [
         [{ content: centre ? centre.name : 'AUTRE', colSpan: 11, styles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' as const } }],
         ...head,
@@ -364,6 +367,7 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
 
   autoTable(doc, {
     startY: headerY + 22,
+    margin: { bottom: 44 },
     head,
     body,
     styles: { fontSize: 7.5, cellPadding: 2, halign: 'center' },
