@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Session, Centre } from '../types';
-import { computeRow, computeTotals, pct, admisThreshold } from './calculations';
+import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses } from './calculations';
 
 export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string) {
   const admis = (session.eleves ?? [])
@@ -207,7 +207,10 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const headerY = drawHeader(doc, session, selectionNote);
 
-  const computed = session.classes.map((c) => computeRow(c, 'BEPC'));
+  const effectiveClasses = session.eleves.length > 0
+    ? applyElevesToClasses(session.classes, session.eleves, 'BEPC')
+    : session.classes;
+  const computed = effectiveClasses.map((c) => computeRow(c, 'BEPC'));
   const totals = computeTotals(computed, 'BEPC');
 
   const pageW = doc.internal.pageSize.getWidth();
@@ -269,7 +272,10 @@ export function exportBEPCParEtablissement(session: Session) {
   ]];
 
   let currentY = headerY + 14;
-  const allComputed = session.classes.map((c) => computeRow(c, 'BEPC'));
+  const effectiveClasses = session.eleves.length > 0
+    ? applyElevesToClasses(session.classes, session.eleves, 'BEPC')
+    : session.classes;
+  const allComputed = effectiveClasses.map((c) => computeRow(c, 'BEPC'));
 
   const centresWithRows: { centre: Centre | null; rows: typeof allComputed }[] = [];
   session.centres.forEach((centre) => {

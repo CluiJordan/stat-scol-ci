@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
-import { computeRow, computeTotals, pct, admisThreshold } from '../lib/calculations';
+import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses } from '../lib/calculations';
 import { countErrors } from '../lib/validation';
 import { exportBEPCGeneral, exportBEPCParEtablissement, exportBACStatistique, exportListeAdmis } from '../lib/exportPdf';
 import { exportExcel } from '../lib/exportExcel';
@@ -29,8 +29,11 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const filteredClasses = session.classes.filter((c) => selectedClassIds.has(c.id));
   const filteredClassNames = new Set(filteredClasses.map((c) => c.name));
   const filteredEleves = session.eleves.filter((e) => filteredClassNames.has(e.classe));
-  const filteredSession = { ...session, classes: filteredClasses, eleves: filteredEleves };
-  const computed = filteredClasses.map((c) => computeRow(c, session.examType));
+  const effectiveClasses = filteredEleves.length > 0
+    ? applyElevesToClasses(filteredClasses, filteredEleves, session.examType)
+    : filteredClasses;
+  const filteredSession = { ...session, classes: effectiveClasses, eleves: filteredEleves };
+  const computed = effectiveClasses.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
   const errors = countErrors(filteredClasses, session.examType);
   const good = totals.tauxTotal >= 0.5;
