@@ -218,21 +218,21 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
   const head = [[
     'Classe',
     'Candidats inscrits', 'Candidats Présents', 'Admis', "Taux d'admission",
-    'Inscrits Garçon', 'Admis Garçon', "Taux d'admission Garçon",
-    'Inscrits Fille', 'Admis Fille', "Taux d'admission Fille",
+    'Inscrits Garçon', 'Présents Garçon', 'Admis Garçon', "Taux d'admission Garçon",
+    'Inscrits Fille', 'Présents Fille', 'Admis Fille', "Taux d'admission Fille",
   ]];
 
   const body = computed.map((r) => [
     r.name,
     r.inscritsTotal, r.presentsTotal, r.admisTotal, pct(r.tauxTotal),
-    r.inscritsGarcon, r.admisGarcon, pct(r.tauxGarcon),
-    r.inscritsFille, r.admisFille, pct(r.tauxFille),
+    r.inscritsGarcon, r.presentsGarcon, r.admisGarcon, pct(r.tauxGarcon),
+    r.inscritsFille, r.presentsFille, r.admisFille, pct(r.tauxFille),
   ]);
   body.push([
     'TOTAL',
     totals.inscritsTotal, totals.presentsTotal, totals.admisTotal, pct(totals.tauxTotal),
-    totals.inscritsGarcon, totals.admisGarcon, pct(totals.tauxGarcon),
-    totals.inscritsFille, totals.admisFille, pct(totals.tauxFille),
+    totals.inscritsGarcon, totals.presentsGarcon, totals.admisGarcon, pct(totals.tauxGarcon),
+    totals.inscritsFille, totals.presentsFille, totals.admisFille, pct(totals.tauxFille),
   ]);
 
   autoTable(doc, {
@@ -244,7 +244,7 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
     headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.3, lineColor: [0, 0, 0] },
     bodyStyles: { lineWidth: 0.3, lineColor: [0, 0, 0] },
     columnStyles: { 0: { halign: 'left' } },
-    didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], body.length - 1),
+    didParseCell: (data) => applyColColors(data, [5, 6, 7, 8], [9, 10, 11, 12], body.length - 1),
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,8 +264,8 @@ export function exportBEPCParEtablissement(session: Session) {
   const head = [[
     'Classe',
     'Candidats inscrits', 'Candidats Présents', 'Admis', "Taux d'admission",
-    'Inscrits Garçon', 'Admis Garçon', "Taux d'admission Garçon",
-    'Inscrits Fille', 'Admis Fille', "Taux d'admission Fille",
+    'Inscrits Garçon', 'Présents Garçon', 'Admis Garçon', "Taux d'admission Garçon",
+    'Inscrits Fille', 'Présents Fille', 'Admis Fille', "Taux d'admission Fille",
   ]];
 
   let currentY = headerY + 14;
@@ -284,21 +284,21 @@ export function exportBEPCParEtablissement(session: Session) {
     const body = rows.map((r) => [
       r.name,
       r.inscritsTotal, r.presentsTotal, r.admisTotal, pct(r.tauxTotal),
-      r.inscritsGarcon, r.admisGarcon, pct(r.tauxGarcon),
-      r.inscritsFille, r.admisFille, pct(r.tauxFille),
+      r.inscritsGarcon, r.presentsGarcon, r.admisGarcon, pct(r.tauxGarcon),
+      r.inscritsFille, r.presentsFille, r.admisFille, pct(r.tauxFille),
     ]);
     body.push([
       'TOTAL',
       groupTotals.inscritsTotal, groupTotals.presentsTotal, groupTotals.admisTotal, pct(groupTotals.tauxTotal),
-      groupTotals.inscritsGarcon, groupTotals.admisGarcon, pct(groupTotals.tauxGarcon),
-      groupTotals.inscritsFille, groupTotals.admisFille, pct(groupTotals.tauxFille),
+      groupTotals.inscritsGarcon, groupTotals.presentsGarcon, groupTotals.admisGarcon, pct(groupTotals.tauxGarcon),
+      groupTotals.inscritsFille, groupTotals.presentsFille, groupTotals.admisFille, pct(groupTotals.tauxFille),
     ]);
 
     autoTable(doc, {
       startY: currentY,
       margin: { bottom: 32 },
       head: [
-        [{ content: centre ? centre.name : 'AUTRE', colSpan: 11, styles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' as const } }],
+        [{ content: centre ? centre.name : 'AUTRE', colSpan: 13, styles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' as const } }],
         ...head,
       ],
       body,
@@ -306,7 +306,7 @@ export function exportBEPCParEtablissement(session: Session) {
       headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.3, lineColor: [0, 0, 0] },
       bodyStyles: { lineWidth: 0.3, lineColor: [0, 0, 0] },
       columnStyles: { 0: { halign: 'left' } },
-      didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], body.length - 1),
+      didParseCell: (data) => applyColColors(data, [5, 6, 7, 8], [9, 10, 11, 12], body.length - 1),
     });
 
     currentY = (doc as any).lastAutoTable.finalY + 8;

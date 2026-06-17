@@ -364,24 +364,24 @@ function Td({ children, left, c, total }: { children: React.ReactNode; left?: bo
 
 function BEPCTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
   return (
-    <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
+    <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 980 }}>
       <thead><tr>
         <Th>Classe</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Admis</Th><Th>Taux</Th>
-        <Th c="gar">Inscr. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
-        <Th c="fil">Inscr. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
+        <Th c="gar">Inscr. G</Th><Th c="gar">Prés. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
+        <Th c="fil">Inscr. F</Th><Th c="fil">Prés. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
       </tr></thead>
       <tbody>
         {rows.map((r) => (
           <tr key={r.id}>
             <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-            <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
-            <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
+            <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.presentsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
+            <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.presentsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
           </tr>
         ))}
         <tr>
           <Td left total>TOTAL</Td><Td total>{totals.inscritsTotal}</Td><Td total>{totals.presentsTotal}</Td><Td total>{totals.admisTotal}</Td><Td total>{pct(totals.tauxTotal)}</Td>
-          <Td c="gar" total>{totals.inscritsGarcon}</Td><Td c="gar" total>{totals.admisGarcon}</Td><Td c="gar" total>{pct(totals.tauxGarcon)}</Td>
-          <Td c="fil" total>{totals.inscritsFille}</Td><Td c="fil" total>{totals.admisFille}</Td><Td c="fil" total>{pct(totals.tauxFille)}</Td>
+          <Td c="gar" total>{totals.inscritsGarcon}</Td><Td c="gar" total>{totals.presentsGarcon}</Td><Td c="gar" total>{totals.admisGarcon}</Td><Td c="gar" total>{pct(totals.tauxGarcon)}</Td>
+          <Td c="fil" total>{totals.inscritsFille}</Td><Td c="fil" total>{totals.presentsFille}</Td><Td c="fil" total>{totals.admisFille}</Td><Td c="fil" total>{pct(totals.tauxFille)}</Td>
         </tr>
       </tbody>
     </table>
@@ -430,24 +430,24 @@ function BEPCParEtabTable({ session, computed }: { session: Session; computed: R
         return (
           <div key={gi}>
             <div className="mono" style={{ background: 'var(--paper-3)', padding: '8px 12px', fontSize: 11, letterSpacing: '0.1em', fontWeight: 700, borderBottom: '1px solid var(--line)' }}>{centre ? centre.name : 'AUTRES'}</div>
-            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 980 }}>
               <thead><tr>
                 <Th>Classe</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Admis</Th><Th>Taux</Th>
-                <Th c="gar">Inscr. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
-                <Th c="fil">Inscr. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
+                <Th c="gar">Inscr. G</Th><Th c="gar">Prés. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
+                <Th c="fil">Inscr. F</Th><Th c="fil">Prés. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
               </tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <Td left>{r.name}</Td><Td>{r.inscritsTotal}</Td><Td>{r.presentsTotal}</Td><Td>{r.admisTotal}</Td><Td>{pct(r.tauxTotal)}</Td>
-                    <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
-                    <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
+                    <Td c="gar">{r.inscritsGarcon}</Td><Td c="gar">{r.presentsGarcon}</Td><Td c="gar">{r.admisGarcon}</Td><Td c="gar">{pct(r.tauxGarcon)}</Td>
+                    <Td c="fil">{r.inscritsFille}</Td><Td c="fil">{r.presentsFille}</Td><Td c="fil">{r.admisFille}</Td><Td c="fil">{pct(r.tauxFille)}</Td>
                   </tr>
                 ))}
                 <tr>
                   <Td left total>TOTAL</Td><Td total>{gt.inscritsTotal}</Td><Td total>{gt.presentsTotal}</Td><Td total>{gt.admisTotal}</Td><Td total>{pct(gt.tauxTotal)}</Td>
-                  <Td c="gar" total>{gt.inscritsGarcon}</Td><Td c="gar" total>{gt.admisGarcon}</Td><Td c="gar" total>{pct(gt.tauxGarcon)}</Td>
-                  <Td c="fil" total>{gt.inscritsFille}</Td><Td c="fil" total>{gt.admisFille}</Td><Td c="fil" total>{pct(gt.tauxFille)}</Td>
+                  <Td c="gar" total>{gt.inscritsGarcon}</Td><Td c="gar" total>{gt.presentsGarcon}</Td><Td c="gar" total>{gt.admisGarcon}</Td><Td c="gar" total>{pct(gt.tauxGarcon)}</Td>
+                  <Td c="fil" total>{gt.inscritsFille}</Td><Td c="fil" total>{gt.presentsFille}</Td><Td c="fil" total>{gt.admisFille}</Td><Td c="fil" total>{pct(gt.tauxFille)}</Td>
                 </tr>
               </tbody>
             </table>
