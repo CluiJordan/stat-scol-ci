@@ -208,6 +208,7 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
               </div>
               <Field label="Ministère"><TextInput value={session.ministere} upper onChange={(v) => setField('ministere', v)} /></Field>
               <Field label="Session"><TextInput value={session.examSession} upper placeholder="EX: SESSION 2025" onChange={(v) => setField('examSession', v)} /></Field>
+              <Field label="Nom du directeur"><TextInput value={session.nomDirecteur ?? ''} upper placeholder="EX: M. KONAN KOUADIO" onChange={(v) => setField('nomDirecteur', v)} /></Field>
             </div>
           </div>
         )}

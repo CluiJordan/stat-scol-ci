@@ -4,17 +4,12 @@ import type { Session, Centre } from '../types';
 import { computeRow, computeTotals, pct, admisThreshold } from './calculations';
 
 export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string) {
-  const isBac = session.examType === 'BAC';
   const admis = (session.eleves ?? [])
-    .filter((e) => e.points !== null && e.points >= admisThreshold(session.examType))
+    .filter((e) => !e.absent && e.points !== null && e.points >= admisThreshold(session.examType))
     .sort((a, b) => {
       const n = a.nom.localeCompare(b.nom, 'fr');
       return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr');
     });
-
-  // Compute stats from classes
-  const computedRows = session.classes.map((c) => computeRow(c, session.examType));
-  const totals = computeTotals(computedRows, session.examType);
 
   const isGrand = format === 'grand';
   const doc = new jsPDF({ orientation: isGrand ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
@@ -39,55 +34,48 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   doc.setFont('helvetica', 'italic');
   doc.text(`${admis.length} admis`, pageW / 2, y, { align: 'center' });
 
-  // Summary stats table (inscrits / présents / admis / taux — total + par genre)
-  y += 5;
-  const statsHead = [['', 'Inscrits', 'Présents', 'Admis', "Taux d'admission"]];
-  const statsBody = [
-    ['Total', totals.inscritsTotal, totals.presentsTotal, totals.admisTotal, pct(totals.tauxTotal)],
-    ['Garçons', totals.inscritsGarcon, isBac ? totals.presentsGarcon : '—', totals.admisGarcon, pct(totals.tauxGarcon)],
-    ['Filles', totals.inscritsFille, isBac ? totals.presentsFille : '—', totals.admisFille, pct(totals.tauxFille)],
-  ];
-  autoTable(doc, {
-    startY: y,
-    head: statsHead,
-    body: statsBody,
-    styles: { fontSize: 8, cellPadding: 2.5, halign: 'center' },
-    headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
-    bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
-    columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 24 } },
-    didParseCell: (data) => {
-      if (data.section !== 'body') return;
-      if (data.row.index === 0) { data.cell.styles.fillColor = [230, 230, 230]; data.cell.styles.fontStyle = 'bold'; }
-      else if (data.row.index === 1) { data.cell.styles.fillColor = [239, 246, 255]; }
-      else { data.cell.styles.fillColor = [253, 242, 248]; }
-    },
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const summaryEndY = (doc as any).lastAutoTable.finalY + 8;
+  const tableStartY = y + 8;
 
   let tableSize: number;
   let cellPad: number;
+  let grandNomW = 0;
+  let grandPrenomW = 0;
 
   if (isGrand) {
-    // Fixed column widths: N°=16, Matricule=48 → remaining split evenly for Nom and Prénoms
     const tableW = pageW - 28;
-    const fixedW = 16 + 48;
-    const flexW = (tableW - fixedW) / 2; // available width per flex column
+    const fixedW = 16 + 48; // N° + Matricule
+    const totalFlex = tableW - fixedW;
 
-    // Find largest font size where every Nom and Prénoms fits on one line
     tableSize = 7;
+    grandNomW = totalFlex / 2;
+    grandPrenomW = totalFlex / 2;
+
     outer: for (let size = 24; size >= 7; size -= 0.5) {
       const pad = Math.max(2, size * 0.11);
-      const contentW = flexW - 2 * pad;
       doc.setFontSize(size);
+
+      doc.setFont('helvetica', 'bold');
+      let maxNomW = 0;
       for (const e of admis) {
-        doc.setFont('helvetica', 'bold');
-        if (doc.getTextWidth(e.nom) > contentW) continue outer;
-        doc.setFont('helvetica', 'normal');
-        if (doc.getTextWidth(e.prenoms) > contentW) continue outer;
+        const w = doc.getTextWidth(e.nom);
+        if (w > maxNomW) maxNomW = w;
       }
+
+      doc.setFont('helvetica', 'normal');
+      let maxPrenomW = 0;
+      for (const e of admis) {
+        const w = doc.getTextWidth(e.prenoms);
+        if (w > maxPrenomW) maxPrenomW = w;
+      }
+
+      const nomNeeded = maxNomW + 2 * pad;
+      const prenomNeeded = maxPrenomW + 2 * pad;
+
+      if (nomNeeded + prenomNeeded > totalFlex) continue outer;
+
       tableSize = size;
+      grandNomW = nomNeeded;
+      grandPrenomW = totalFlex - nomNeeded;
       break;
     }
     cellPad = Math.max(2, tableSize * 0.11);
@@ -96,17 +84,14 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
     cellPad = 2.5;
   }
 
-  // Grand format: no Points column (for display); normal: include Points
   const body = admis.map((e, i) =>
     isGrand
       ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms]
       : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, String(e.points ?? '')]
   );
 
-  const grandFlexW = isGrand ? ((pageW - 28 - 16 - 48) / 2) : 0;
-
   autoTable(doc, {
-    startY: summaryEndY,
+    startY: tableStartY,
     head: [isGrand ? ['N°', 'Matricule', 'Nom', 'Prénoms'] : ['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
     tableWidth: pageW - 28,
@@ -118,8 +103,8 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
       ? {
           0: { halign: 'center', cellWidth: 16 },
           1: { halign: 'center', cellWidth: 48 },
-          2: { halign: 'left', fontStyle: 'bold', cellWidth: grandFlexW },
-          3: { halign: 'left', cellWidth: grandFlexW },
+          2: { halign: 'left', fontStyle: 'bold', cellWidth: grandNomW },
+          3: { halign: 'left', cellWidth: grandPrenomW },
         }
       : {
           0: { halign: 'center', cellWidth: 12 },
@@ -130,23 +115,32 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
         },
   });
 
-  drawDirecteurFooter(doc);
+  drawDirecteurFooter(doc, session.nomDirecteur);
   const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
   doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
-function drawDirecteurFooter(doc: jsPDF) {
+function drawDirecteurFooter(doc: jsPDF, nomDirecteur?: string) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const x = pageW - 14;
 
+  // Date (au-dessus)
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Fait à _________________________, le _________________________', x, pageH - 32, { align: 'right' });
+
+  // LE DIRECTEUR
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('LE DIRECTEUR', x, pageH - 24, { align: 'right' });
 
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Fait à _________________________, le _________________________', x, pageH - 14, { align: 'right' });
+  // Espace de ~14mm pour signature, puis le nom
+  if (nomDirecteur) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(nomDirecteur, x, pageH - 10, { align: 'right' });
+  }
 }
 
 // Returns bottom Y of the header block so callers can position content dynamically
@@ -251,7 +245,7 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
     didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], body.length - 1),
   });
 
-  drawDirecteurFooter(doc);
+  drawDirecteurFooter(doc, session.nomDirecteur);
   doc.save(`BEPC_Statistique_Generale_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
@@ -314,7 +308,7 @@ export function exportBEPCParEtablissement(session: Session) {
     currentY = (doc as any).lastAutoTable.finalY + 8;
   });
 
-  drawDirecteurFooter(doc);
+  drawDirecteurFooter(doc, session.nomDirecteur);
   doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 
@@ -371,6 +365,6 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
     didParseCell: (data) => applyColColors(data, [6, 7, 8, 9], [10, 11, 12, 13], body.length - 1),
   });
 
-  drawDirecteurFooter(doc);
+  drawDirecteurFooter(doc, session.nomDirecteur);
   doc.save(`BAC_Statistique_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }

@@ -41,6 +41,7 @@ export interface Session {
   examType: ExamType;
   examSession: string;
   saisieMode: 'eleves' | 'manuel' | null;
+  nomDirecteur?: string;
   centres: Centre[];
   classes: ClassRow[];
   eleves: Eleve[];
