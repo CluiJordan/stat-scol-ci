@@ -100,7 +100,6 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
 
   autoTable(doc, {
     startY: tableStartY,
-    margin: { bottom: 44 }, // réserve de la place pour le footer (date + LE DIRECTEUR + nom)
     head: [isGrand ? ['N°', 'Matricule', 'Nom', 'Prénoms'] : ['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
     body,
     tableWidth: pageW - 28,
@@ -124,9 +123,18 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
         },
   });
 
+  ensureFooterSpace(doc);
   drawDirecteurFooter(doc, session.nomDirecteur);
   const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
   doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
+}
+
+// Ajoute une page si la dernière ligne du tableau chevauche la zone du footer
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ensureFooterSpace(doc: jsPDF) {
+  const pageH = doc.internal.pageSize.getHeight();
+  const lastY = (doc as any).lastAutoTable?.finalY ?? 0;
+  if (lastY > pageH - 44) doc.addPage();
 }
 
 function drawDirecteurFooter(doc: jsPDF, nomDirecteur?: string) {
@@ -245,7 +253,6 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
 
   autoTable(doc, {
     startY: headerY + 14,
-    margin: { bottom: 44 },
     head,
     body,
     styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
@@ -255,6 +262,7 @@ export function exportBEPCGeneral(session: Session, selectionNote?: string) {
     didParseCell: (data) => applyColColors(data, [5, 6, 7], [8, 9, 10], body.length - 1),
   });
 
+  ensureFooterSpace(doc);
   drawDirecteurFooter(doc, session.nomDirecteur);
   doc.save(`BEPC_Statistique_Generale_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
@@ -303,7 +311,6 @@ export function exportBEPCParEtablissement(session: Session) {
 
     autoTable(doc, {
       startY: currentY,
-      margin: { bottom: 44 },
       head: [
         [{ content: centre ? centre.name : 'AUTRE', colSpan: 11, styles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' as const } }],
         ...head,
@@ -319,6 +326,7 @@ export function exportBEPCParEtablissement(session: Session) {
     currentY = (doc as any).lastAutoTable.finalY + 8;
   });
 
+  ensureFooterSpace(doc);
   drawDirecteurFooter(doc, session.nomDirecteur);
   doc.save(`BEPC_Statistique_ParEtablissement_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
@@ -367,7 +375,6 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
 
   autoTable(doc, {
     startY: headerY + 22,
-    margin: { bottom: 44 },
     head,
     body,
     styles: { fontSize: 7.5, cellPadding: 2, halign: 'center' },
@@ -377,6 +384,7 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
     didParseCell: (data) => applyColColors(data, [6, 7, 8, 9], [10, 11, 12, 13], body.length - 1),
   });
 
+  ensureFooterSpace(doc);
   drawDirecteurFooter(doc, session.nomDirecteur);
   doc.save(`BAC_Statistique_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
