@@ -25,8 +25,8 @@ export function applyElevesToClasses(
       inscritsGarcon: g.length,
       inscritsFille: f.length,
       presentsTotal: examType === 'BEPC' ? ce.filter(present).length : 0,
-      presentsGarcon: examType === 'BAC' ? g.filter(present).length : 0,
-      presentsFille: examType === 'BAC' ? f.filter(present).length : 0,
+      presentsGarcon: g.filter(present).length,
+      presentsFille: f.filter(present).length,
       admisGarcon: g.filter(admis).length,
       admisFille: f.filter(admis).length,
     };
@@ -77,6 +77,8 @@ export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
     presentsTotal = presentsGarcon + presentsFille;
   } else {
     presentsTotal = clamp(row.presentsTotal || 0, 0, inscritsTotal);
+    presentsGarcon = clamp(row.presentsGarcon || 0, 0, inscritsGarcon);
+    presentsFille = clamp(row.presentsFille || 0, 0, inscritsFille);
   }
 
   let admisGarcon: number;
@@ -86,8 +88,9 @@ export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
     admisGarcon = clamp(row.admisGarcon || 0, 0, presentsGarcon);
     admisFille = clamp(row.admisFille || 0, 0, presentsFille);
   } else {
-    admisGarcon = clamp(row.admisGarcon || 0, 0, inscritsGarcon);
-    admisFille = clamp(row.admisFille || 0, 0, inscritsFille);
+    // BEPC: clamp against présents when available (eleves mode), else inscrits (manuel mode)
+    admisGarcon = clamp(row.admisGarcon || 0, 0, presentsGarcon > 0 ? presentsGarcon : inscritsGarcon);
+    admisFille = clamp(row.admisFille || 0, 0, presentsFille > 0 ? presentsFille : inscritsFille);
   }
 
   const admisTotal = admisGarcon + admisFille;
@@ -101,9 +104,9 @@ export function computeRow(row: ClassRow, examType: ExamType): ComputedRow {
     tauxGarcon = ratio(admisGarcon, presentsGarcon);
     tauxFille = ratio(admisFille, presentsFille);
   } else {
-    // BEPC : présents par genre non saisis → taux genre = admis / inscrits
-    tauxGarcon = ratio(admisGarcon, inscritsGarcon);
-    tauxFille = ratio(admisFille, inscritsFille);
+    // BEPC : use présents by gender when available (eleves mode), else inscrits (manuel mode)
+    tauxGarcon = ratio(admisGarcon, presentsGarcon > 0 ? presentsGarcon : inscritsGarcon);
+    tauxFille = ratio(admisFille, presentsFille > 0 ? presentsFille : inscritsFille);
   }
 
   return {
@@ -148,8 +151,9 @@ export function computeTotals(rows: ComputedRow[], examType: ExamType): Computed
     tauxGarcon = ratio(admisGarcon, presentsGarcon);
     tauxFille = ratio(admisFille, presentsFille);
   } else {
-    tauxGarcon = ratio(admisGarcon, inscritsGarcon);
-    tauxFille = ratio(admisFille, inscritsFille);
+    // BEPC : use présents by gender when available (eleves mode), else inscrits (manuel mode)
+    tauxGarcon = ratio(admisGarcon, presentsGarcon > 0 ? presentsGarcon : inscritsGarcon);
+    tauxFille = ratio(admisFille, presentsFille > 0 ? presentsFille : inscritsFille);
   }
 
   return {
