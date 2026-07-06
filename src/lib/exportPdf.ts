@@ -1,15 +1,38 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Session, Centre } from '../types';
+import type { Session, Centre, Eleve } from '../types';
 import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses, computeSerieRows } from './calculations';
 
-export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string) {
+/** Présentation de la série dans la liste des admis (BAC) :
+ *  'aucun' = pas de série · 'colonne' = colonne Série · 'groupe' = liste groupée par série */
+export type ListeSerieMode = 'aucun' | 'colonne' | 'groupe';
+
+export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string, serieMode: ListeSerieMode = 'aucun') {
   const admis = (session.eleves ?? [])
     .filter((e) => !e.absent && e.points !== null && e.points >= admisThreshold(session.examType))
     .sort((a, b) => {
       const n = a.nom.localeCompare(b.nom, 'fr');
       return n !== 0 ? n : a.prenoms.localeCompare(b.prenoms, 'fr');
     });
+
+  const hasSerie = session.examType === 'BAC' && admis.some((e) => (e.serie ?? '').trim());
+  const mode: ListeSerieMode = hasSerie ? serieMode : 'aucun';
+  const withSerieCol = mode === 'colonne';
+  const grouped = mode === 'groupe';
+
+  const serieOf = (e: Eleve) => (e.serie ?? '').trim().toUpperCase() || 'NON PRÉCISÉE';
+  const groups: [string, Eleve[]][] = grouped
+    ? (() => {
+        const m = new Map<string, Eleve[]>();
+        for (const e of admis) {
+          const s = serieOf(e);
+          if (!m.has(s)) m.set(s, []);
+          m.get(s)!.push(e);
+        }
+        return [...m.entries()].sort(([a], [b]) =>
+          a === 'NON PRÉCISÉE' ? 1 : b === 'NON PRÉCISÉE' ? -1 : a.localeCompare(b, 'fr'));
+      })()
+    : [['', admis]];
 
   const isGrand = format === 'grand';
   const doc = new jsPDF({ orientation: isGrand ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
@@ -41,6 +64,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   let grandNumW = 16;
   let grandNomW = 0;
   let grandPrenomW = 0;
+  let grandSerieW = 0;
 
   if (isGrand) {
     const tableW = pageW - 28;
@@ -58,6 +82,17 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
       // Largeur minimale pour la colonne N° (ex: "001", "099", "100")
       doc.setFont('helvetica', 'normal');
       const numNeeded = doc.getTextWidth(String(admis.length).padStart(3, '0')) + 2 * pad;
+
+      // Largeur minimale Série (colonne optionnelle)
+      let serieNeeded = 0;
+      if (withSerieCol) {
+        let maxSerieW = doc.getTextWidth('Série');
+        for (const e of admis) {
+          const w = doc.getTextWidth(serieOf(e));
+          if (w > maxSerieW) maxSerieW = w;
+        }
+        serieNeeded = maxSerieW + 2 * pad;
+      }
 
       // Largeur minimale Nom
       doc.setFont('helvetica', 'bold');
@@ -78,12 +113,13 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
       const nomNeeded = maxNomW + 2 * pad;
       const prenomNeeded = maxPrenomW + 2 * pad;
 
-      if (numNeeded + matW + nomNeeded + prenomNeeded > tableW) continue outer;
+      if (numNeeded + matW + nomNeeded + prenomNeeded + serieNeeded > tableW) continue outer;
 
       tableSize = size;
       grandNumW = numNeeded;
       grandNomW = nomNeeded;
-      grandPrenomW = tableW - numNeeded - matW - nomNeeded;
+      grandSerieW = serieNeeded;
+      grandPrenomW = tableW - numNeeded - matW - nomNeeded - serieNeeded;
       break;
     }
     cellPad = Math.max(2, tableSize * 0.11);
@@ -92,16 +128,33 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
     cellPad = 2.5;
   }
 
-  const body = admis.map((e, i) =>
+  const headRow = isGrand
+    ? ['N°', 'Matricule', 'Nom', 'Prénoms', ...(withSerieCol ? ['Série'] : [])]
+    : ['N°', 'Matricule', 'Nom', 'Prénoms', ...(withSerieCol ? ['Série'] : []), 'Points'];
+  const colCount = headRow.length;
+
+  const eleveRow = (e: Eleve, i: number) =>
     isGrand
-      ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms]
-      : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, String(e.points ?? '')]
-  );
+      ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, ...(withSerieCol ? [serieOf(e)] : [])]
+      : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, ...(withSerieCol ? [serieOf(e)] : []), String(e.points ?? '')];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any[] = [];
+  groups.forEach(([serieName, list]) => {
+    if (grouped) {
+      body.push([{
+        content: `SÉRIE ${serieName} — ${list.length} admis`,
+        colSpan: colCount,
+        styles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' as const },
+      }]);
+    }
+    list.forEach((e, i) => body.push(eleveRow(e, i)));
+  });
 
   autoTable(doc, {
     startY: tableStartY,
     margin: { bottom: 32 },
-    head: [isGrand ? ['N°', 'Matricule', 'Nom', 'Prénoms'] : ['N°', 'Matricule', 'Nom', 'Prénoms', 'Points']],
+    head: [headRow],
     body,
     tableWidth: pageW - 28,
     styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
@@ -114,19 +167,22 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
           1: { halign: 'center', cellWidth: 48 },
           2: { halign: 'left', fontStyle: 'bold', cellWidth: grandNomW },
           3: { halign: 'left', cellWidth: grandPrenomW },
+          ...(withSerieCol ? { 4: { halign: 'center' as const, cellWidth: grandSerieW } } : {}),
         }
       : {
           0: { halign: 'center', cellWidth: 12 },
           1: { halign: 'center', cellWidth: 35 },
           2: { halign: 'left', fontStyle: 'bold' },
           3: { halign: 'left' },
-          4: { halign: 'center', cellWidth: 18 },
+          ...(withSerieCol
+            ? { 4: { halign: 'center' as const, cellWidth: 16 }, 5: { halign: 'center' as const, cellWidth: 18 } }
+            : { 4: { halign: 'center' as const, cellWidth: 18 } }),
         },
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   drawDirecteurFooter(doc, session.nomDirecteur, (doc as any).lastAutoTable.finalY);
-  const suffix = isGrand ? 'Grand_Format' : 'Format_Normal';
+  const suffix = `${grouped ? 'Par_Serie_' : ''}${isGrand ? 'Grand_Format' : 'Format_Normal'}`;
   doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
 

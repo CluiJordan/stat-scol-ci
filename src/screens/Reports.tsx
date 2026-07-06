@@ -4,6 +4,7 @@ import { getSession } from '../lib/storage';
 import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses, computeSerieRows } from '../lib/calculations';
 import { countErrors } from '../lib/validation';
 import { exportBEPCGeneral, exportBEPCParEtablissement, exportBACStatistique, exportListeAdmis } from '../lib/exportPdf';
+import type { ListeSerieMode } from '../lib/exportPdf';
 import { exportExcel } from '../lib/exportExcel';
 import { Masthead, Ticker, Donut, BarChart, SectionHead, useToast } from '../components/ui/design';
 
@@ -22,6 +23,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const [toast, showToast] = useToast();
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(() => new Set(session.classes.map((c) => c.id)));
   const [showFilter, setShowFilter] = useState(false);
+  const [listeSerieMode, setListeSerieMode] = useState<ListeSerieMode>('groupe');
 
   const isBac = session.examType === 'BAC';
   const allSelected = selectedClassIds.size === session.classes.length;
@@ -277,15 +279,29 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
         {/* LISTE DES ADMIS */}
         {session.eleves.length > 0 && (() => {
           const admisCount = filteredEleves.filter((e) => e.points !== null && e.points >= admisThreshold(session.examType)).length;
+          const hasSeries = isBac && filteredEleves.some((e) => (e.serie ?? '').trim());
           return (
             <section style={{ marginTop: 56 }}>
-              <SectionHead n="★" title="Liste des admis" desc={`${admisCount} admis${allSelected ? '' : ' (sélection)'} — triés alphabétiquement, toutes classes confondues.`} />
+              <SectionHead n="★" title="Liste des admis" desc={`${admisCount} admis${allSelected ? '' : ' (sélection)'} — triés alphabétiquement${hasSeries && listeSerieMode === 'groupe' ? ', regroupés par série' : ', toutes classes confondues'}.`} />
+              {hasSeries && (
+                <div style={{ marginTop: 20 }}>
+                  <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 8 }}>Présentation de la série</div>
+                  <div style={{ display: 'flex', gap: 0, border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden', width: 'fit-content' }}>
+                    {([['groupe', 'Groupée par série'], ['colonne', 'Colonne Série'], ['aucun', 'Sans série']] as [ListeSerieMode, string][]).map(([k, l]) => (
+                      <button key={k} onClick={() => setListeSerieMode(k)} className="mono"
+                        style={{ padding: '9px 14px', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: listeSerieMode === k ? 'var(--ink)' : 'transparent', color: listeSerieMode === k ? 'var(--paper)' : 'var(--ink-2)' }}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 16, marginTop: 20, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 220, border: '1px solid var(--line)', borderRadius: 6, padding: '20px 22px' }}>
                   <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Grand format</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14 }}>Grande police — pour affichage</div>
                   <button className="btn btn--sm btn--accent" style={{ width: '100%' }}
-                    onClick={() => { exportListeAdmis(filteredSession, 'grand', selectionNote); showToast('Export en cours…'); }}>
+                    onClick={() => { exportListeAdmis(filteredSession, 'grand', selectionNote, listeSerieMode); showToast('Export en cours…'); }}>
                     ↓ Télécharger (affichage)
                   </button>
                 </div>
@@ -293,7 +309,7 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
                   <div className="mono" style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Format normal</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14 }}>Police standard — pour conservation</div>
                   <button className="btn btn--sm" style={{ width: '100%' }}
-                    onClick={() => { exportListeAdmis(filteredSession, 'normal', selectionNote); showToast('Export en cours…'); }}>
+                    onClick={() => { exportListeAdmis(filteredSession, 'normal', selectionNote, listeSerieMode); showToast('Export en cours…'); }}>
                     ↓ Télécharger (conservation)
                   </button>
                 </div>
