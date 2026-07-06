@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Session, Centre } from '../types';
 import { getSession } from '../lib/storage';
-import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses } from '../lib/calculations';
+import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses, computeSerieRows } from '../lib/calculations';
 import { countErrors } from '../lib/validation';
 import { exportBEPCGeneral, exportBEPCParEtablissement, exportBACStatistique, exportListeAdmis } from '../lib/exportPdf';
 import { exportExcel } from '../lib/exportExcel';
@@ -35,6 +35,8 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
   const filteredSession = { ...session, classes: effectiveClasses, eleves: filteredEleves };
   const computed = effectiveClasses.map((c) => computeRow(c, session.examType));
   const totals = computeTotals(computed, session.examType);
+  const serieRows = session.examType === 'BAC' ? computeSerieRows(filteredEleves, 'BAC') : [];
+  const serieTotals = computeTotals(serieRows, 'BAC');
   const errors = countErrors(filteredClasses, session.examType);
   const good = totals.tauxTotal >= 0.5;
 
@@ -262,6 +264,16 @@ export default function Reports({ sessionId, onBack, onEdit }: Props) {
           </div>
         </section>
 
+        {/* RÉCAP PAR SÉRIE (BAC) */}
+        {report === 'bac' && serieRows.length > 0 && (
+          <section style={{ marginTop: 56 }}>
+            <SectionHead n="§" title="Récapitulatif par série" desc="Résultats agrégés par série (A1, A2, C, D…), toutes classes confondues." />
+            <div className="scroll-x" style={{ border: '1px solid var(--line)', marginTop: 18 }}>
+              <BACTable rows={serieRows} totals={serieTotals} firstCol="Série" />
+            </div>
+          </section>
+        )}
+
         {/* LISTE DES ADMIS */}
         {session.eleves.length > 0 && (() => {
           const admisCount = filteredEleves.filter((e) => e.points !== null && e.points >= admisThreshold(session.examType)).length;
@@ -391,11 +403,11 @@ function BEPCTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; to
   );
 }
 
-function BACTable({ rows, totals }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals> }) {
+function BACTable({ rows, totals, firstCol = 'Classe' }: { rows: ReturnType<typeof computeRow>[]; totals: ReturnType<typeof computeTotals>; firstCol?: string }) {
   return (
     <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 1000 }}>
       <thead><tr>
-        <Th>Classe</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Absents</Th><Th>Admis</Th><Th>Taux</Th>
+        <Th>{firstCol}</Th><Th>Inscrits</Th><Th>Présents</Th><Th>Absents</Th><Th>Admis</Th><Th>Taux</Th>
         <Th c="gar">Inscr. G</Th><Th c="gar">Prés. G</Th><Th c="gar">Admis G</Th><Th c="gar">Taux G</Th>
         <Th c="fil">Inscr. F</Th><Th c="fil">Prés. F</Th><Th c="fil">Admis F</Th><Th c="fil">Taux F</Th>
       </tr></thead>

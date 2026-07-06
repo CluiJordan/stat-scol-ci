@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Session, Centre } from '../types';
-import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses } from './calculations';
+import { computeRow, computeTotals, pct, admisThreshold, applyElevesToClasses, computeSerieRows } from './calculations';
 
 export function exportListeAdmis(session: Session, format: 'grand' | 'normal', selectionNote?: string) {
   const admis = (session.eleves ?? [])
@@ -342,7 +342,10 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
   doc.text(titleText, pageW / 2, headerY + 15, { align: 'center' });
   doc.setTextColor(0, 0, 0);
 
-  const computed = session.classes.map((c) => computeRow(c, 'BAC'));
+  const effectiveClasses = session.eleves.length > 0
+    ? applyElevesToClasses(session.classes, session.eleves, 'BAC')
+    : session.classes;
+  const computed = effectiveClasses.map((c) => computeRow(c, 'BAC'));
   const totals = computeTotals(computed, 'BAC');
 
   const head = [[
@@ -376,6 +379,48 @@ export function exportBACStatistique(session: Session, selectionNote?: string) {
     columnStyles: { 0: { halign: 'left' } },
     didParseCell: (data) => applyColColors(data, [6, 7, 8, 9], [10, 11, 12, 13], body.length - 1),
   });
+
+  // Récapitulatif par série (si les séries sont renseignées dans la Saisie)
+  const serieRows = computeSerieRows(session.eleves ?? [], 'BAC');
+  if (serieRows.length > 0) {
+    const serieTotals = computeTotals(serieRows, 'BAC');
+    const serieBody = serieRows.map((r) => [
+      r.name,
+      r.inscritsTotal, r.presentsTotal, r.absents, r.admisTotal, pct(r.tauxTotal),
+      r.inscritsGarcon, r.presentsGarcon, r.admisGarcon, pct(r.tauxGarcon),
+      r.inscritsFille, r.presentsFille, r.admisFille, pct(r.tauxFille),
+    ]);
+    serieBody.push([
+      'TOTAL',
+      serieTotals.inscritsTotal, serieTotals.presentsTotal, serieTotals.absents, serieTotals.admisTotal, pct(serieTotals.tauxTotal),
+      serieTotals.inscritsGarcon, serieTotals.presentsGarcon, serieTotals.admisGarcon, pct(serieTotals.tauxGarcon),
+      serieTotals.inscritsFille, serieTotals.presentsFille, serieTotals.admisFille, pct(serieTotals.tauxFille),
+    ]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const afterClassesY = (doc as any).lastAutoTable.finalY;
+    const pageH = doc.internal.pageSize.getHeight();
+    let recapY = afterClassesY + 12;
+    if (recapY + 28 > pageH) {
+      doc.addPage();
+      recapY = 20;
+    }
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Récapitulatif par série', pageW / 2, recapY, { align: 'center' });
+
+    autoTable(doc, {
+      startY: recapY + 4,
+      margin: { bottom: 32 },
+      head: [['Série', ...head[0].slice(1)]],
+      body: serieBody,
+      styles: { fontSize: 7.5, cellPadding: 2, halign: 'center' },
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.3, lineColor: [0, 0, 0] },
+      bodyStyles: { lineWidth: 0.3, lineColor: [0, 0, 0] },
+      columnStyles: { 0: { halign: 'left' } },
+      didParseCell: (data) => applyColColors(data, [6, 7, 8, 9], [10, 11, 12, 13], serieBody.length - 1),
+    });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   drawDirecteurFooter(doc, session.nomDirecteur, (doc as any).lastAutoTable.finalY);

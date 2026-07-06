@@ -48,6 +48,7 @@ export function importFromFile(file: File, examType: ExamType): Promise<ImportRe
             const prenoms = getCol(row, 'prenoms', 'prenom');
             const genreRaw = getCol(row, 'genre', 'sexe').toUpperCase();
             const classe = getCol(row, 'classe').toUpperCase();
+            const serie = getCol(row, 'serie').toUpperCase();
 
             if (!nom && !matricule) {
               errors.push(`Ligne ${i + 2} : nom et matricule manquants`);
@@ -68,6 +69,7 @@ export function importFromFile(file: File, examType: ExamType): Promise<ImportRe
               prenoms,
               genre,
               classe,
+              serie,
               points: null,
               absent: false,
             });

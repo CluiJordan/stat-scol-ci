@@ -12,6 +12,8 @@ export interface Eleve {
   prenoms: string;
   genre: 'M' | 'F';
   classe: string;
+  // BAC : série de l'élève (A1, A2, C, D…)
+  serie?: string;
   points: number | null;
   absent: boolean;
 }

@@ -164,6 +164,50 @@ export function computeTotals(rows: ComputedRow[], examType: ExamType): Computed
   };
 }
 
+/**
+ * Agrège les élèves par série (BAC) : une ligne par série renseignée,
+ * plus une ligne « NON PRÉCISÉE » si certains élèves n'ont pas de série.
+ * Renvoie [] si aucune série n'est renseignée.
+ */
+export function computeSerieRows(eleves: Eleve[], examType: ExamType): ComputedRow[] {
+  const groups = new Map<string, Eleve[]>();
+  for (const e of eleves) {
+    const s = (e.serie ?? '').trim().toUpperCase();
+    if (!s) continue;
+    if (!groups.has(s)) groups.set(s, []);
+    groups.get(s)!.push(e);
+  }
+  if (groups.size === 0) return [];
+
+  const threshold = admisThreshold(examType);
+  const present = (e: Eleve) => !e.absent && e.points !== null;
+  const admis = (e: Eleve) => !e.absent && e.points !== null && e.points >= threshold;
+
+  const toRow = (name: string, list: Eleve[]): ComputedRow => {
+    const g = list.filter((e) => e.genre === 'M');
+    const f = list.filter((e) => e.genre === 'F');
+    const row: ClassRow = {
+      id: `serie-${name}`, name, centreId: null,
+      inscritsGarcon: g.length, inscritsFille: f.length,
+      presentsTotal: list.filter(present).length,
+      presentsGarcon: g.filter(present).length,
+      presentsFille: f.filter(present).length,
+      admisGarcon: g.filter(admis).length,
+      admisFille: f.filter(admis).length,
+    };
+    return computeRow(row, examType);
+  };
+
+  const rows = [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, 'fr'))
+    .map(([name, list]) => toRow(name, list));
+
+  const sansSerie = eleves.filter((e) => !(e.serie ?? '').trim());
+  if (sansSerie.length > 0) rows.push(toRow('NON PRÉCISÉE', sansSerie));
+
+  return rows;
+}
+
 export function pct(value: number): string {
   return (value * 100).toFixed(2).replace('.', ',') + '%';
 }

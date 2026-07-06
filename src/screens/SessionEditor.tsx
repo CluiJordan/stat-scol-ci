@@ -376,8 +376,8 @@ export default function SessionEditor({ sessionId, onBack, onReports }: Props) {
           {session.saisieMode === 'eleves' && (
             <div style={{ padding: '14px', border: '1px solid var(--green-d)', borderRadius: 4, background: 'var(--green-w)' }}>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--green-d)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Format attendu</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 10, lineHeight: 1.5 }}>Colonnes&nbsp;: Matricule · Nom · Prenoms · Genre (M/F) · Classe</div>
-              <button className="btn btn--ghost btn--sm" onClick={downloadElevesTemplate}>↓ Télécharger le modèle</button>
+              <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 10, lineHeight: 1.5 }}>Colonnes&nbsp;: Matricule · Nom · Prenoms · Genre (M/F) · Classe{session.examType === 'BAC' ? ' · Série' : ''}</div>
+              <button className="btn btn--ghost btn--sm" onClick={() => downloadElevesTemplate(session.examType)}>↓ Télécharger le modèle</button>
             </div>
           )}
 
@@ -659,6 +659,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
         <EditEleveModal
           eleve={editingEleve}
           classes={session.classes.map((c) => c.name)}
+          showSerie={session.examType === 'BAC'}
           onSave={(updates) => { updateEleveInfo(editingEleve.id, updates); setEditingEleve(null); }}
           onClose={() => setEditingEleve(null)}
         />
@@ -668,6 +669,7 @@ function EleveSaisie({ session, addEleve, updateEleve, deleteEleve, deleteEleves
       {showAdd && (
         <AddEleveModal
           classes={session.classes.map((c) => c.name)}
+          showSerie={session.examType === 'BAC'}
           onSave={(eleve) => { addEleve(eleve); setShowAdd(false); }}
           onClose={() => setShowAdd(false)}
         />
@@ -832,9 +834,10 @@ function EleveRow({ eleve, index, examType, onCommit, onDelete, onEdit, onToggle
 
 /* ───────────────────────── Edit eleve modal ───────────────────────── */
 
-function EditEleveModal({ eleve, classes, onSave, onClose }: {
+function EditEleveModal({ eleve, classes, showSerie, onSave, onClose }: {
   eleve: Eleve;
   classes: string[];
+  showSerie: boolean;
   onSave: (updates: Partial<Omit<Eleve, 'id' | 'points'>>) => void;
   onClose: () => void;
 }) {
@@ -843,8 +846,9 @@ function EditEleveModal({ eleve, classes, onSave, onClose }: {
   const [matricule, setMatricule] = useState(eleve.matricule);
   const [genre, setGenre] = useState<'M' | 'F'>(eleve.genre);
   const [classe, setClasse] = useState(eleve.classe);
+  const [serie, setSerie] = useState(eleve.serie ?? '');
 
-  const save = () => onSave({ nom: nom.trim().toUpperCase(), prenoms: prenoms.trim(), matricule: matricule.trim(), genre, classe: classe.trim().toUpperCase() });
+  const save = () => onSave({ nom: nom.trim().toUpperCase(), prenoms: prenoms.trim(), matricule: matricule.trim(), genre, classe: classe.trim().toUpperCase(), serie: serie.trim().toUpperCase() });
 
   return (
     <Modal open title="Modifier l'élève" onClose={onClose}
@@ -868,6 +872,11 @@ function EditEleveModal({ eleve, classes, onSave, onClose }: {
             <SelectInput value={classe} options={[...classes.map((c) => ({ value: c, label: c })), ...(classes.includes(classe) ? [] : [{ value: classe, label: classe }])]} onChange={setClasse} />
           </Field>
         </div>
+        {showSerie && (
+          <Field label="Série">
+            <TextInput value={serie} upper placeholder="EX: A1, A2, C, D…" onChange={setSerie} />
+          </Field>
+        )}
       </div>
     </Modal>
   );
@@ -875,8 +884,9 @@ function EditEleveModal({ eleve, classes, onSave, onClose }: {
 
 /* ───────────────────────── Add eleve modal ───────────────────────── */
 
-function AddEleveModal({ classes, onSave, onClose }: {
+function AddEleveModal({ classes, showSerie, onSave, onClose }: {
   classes: string[];
+  showSerie: boolean;
   onSave: (eleve: Omit<Eleve, 'id'>) => void;
   onClose: () => void;
 }) {
@@ -885,6 +895,7 @@ function AddEleveModal({ classes, onSave, onClose }: {
   const [matricule, setMatricule] = useState('');
   const [genre, setGenre] = useState<'M' | 'F'>('M');
   const [classe, setClasse] = useState(classes[0] ?? '');
+  const [serie, setSerie] = useState('');
   const [points, setPoints] = useState('');
 
   const save = () => {
@@ -896,6 +907,7 @@ function AddEleveModal({ classes, onSave, onClose }: {
       matricule: matricule.trim(),
       genre,
       classe: classe.trim().toUpperCase(),
+      serie: serie.trim().toUpperCase(),
       points: points === '' ? null : Math.max(0, parseInt(points, 10) || 0),
       absent: false,
     });
@@ -923,6 +935,11 @@ function AddEleveModal({ classes, onSave, onClose }: {
             <SelectInput value={classe} options={classes.map((c) => ({ value: c, label: c }))} onChange={setClasse} />
           </Field>
         </div>
+        {showSerie && (
+          <Field label="Série">
+            <TextInput value={serie} upper placeholder="EX: A1, A2, C, D…" onChange={setSerie} />
+          </Field>
+        )}
         <Field label="Points (optionnel)">
           <TextInput value={points} onChange={setPoints} placeholder="Laisser vide si inconnu" />
         </Field>
