@@ -21,6 +21,7 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
   const grouped = mode === 'groupe';
 
   const serieOf = (e: Eleve) => (e.serie ?? '').trim().toUpperCase() || 'NON PRÉCISÉE';
+  // En mode groupé : une feuille (ou série de pages) indépendante par série
   const groups: [string, Eleve[]][] = grouped
     ? (() => {
         const m = new Map<string, Eleve[]>();
@@ -36,152 +37,145 @@ export function exportListeAdmis(session: Session, format: 'grand' | 'normal', s
 
   const isGrand = format === 'grand';
   const doc = new jsPDF({ orientation: isGrand ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
-  const headerY = drawHeader(doc, session, selectionNote);
   const pageW = doc.internal.pageSize.getWidth();
 
-  const titleSize = isGrand ? 16 : 13;
-  const subSize = isGrand ? 10 : 8.5;
+  groups.forEach(([serieName, list], gi) => {
+    if (gi > 0) doc.addPage();
 
-  let y = headerY + 8;
-  doc.setFontSize(titleSize);
-  doc.setFont('helvetica', 'bold');
-  doc.text('LISTE DES ADMIS', pageW / 2, y, { align: 'center' });
+    const headerY = drawHeader(doc, session, selectionNote);
+    const titleSize = isGrand ? 16 : 13;
+    const subSize = isGrand ? 10 : 8.5;
 
-  y += 7;
-  doc.setFontSize(subSize);
-  doc.setFont('helvetica', 'normal');
-  const sessionYear = session.anneeScolaire?.split(/[-–]/).at(-1)?.trim() ?? session.examSession ?? '';
-  doc.text(`${session.examType} session ${sessionYear}`, pageW / 2, y, { align: 'center' });
+    let y = headerY + 8;
+    doc.setFontSize(titleSize);
+    doc.setFont('helvetica', 'bold');
+    doc.text(serieName ? `LISTE DES ADMIS — SÉRIE ${serieName}` : 'LISTE DES ADMIS', pageW / 2, y, { align: 'center' });
 
-  y += 6;
-  doc.setFont('helvetica', 'italic');
-  doc.text(`${admis.length} admis`, pageW / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(subSize);
+    doc.setFont('helvetica', 'normal');
+    const sessionYear = session.anneeScolaire?.split(/[-–]/).at(-1)?.trim() ?? session.examSession ?? '';
+    doc.text(`${session.examType} session ${sessionYear}`, pageW / 2, y, { align: 'center' });
 
-  const tableStartY = y + 8;
+    y += 6;
+    doc.setFont('helvetica', 'italic');
+    doc.text(`${list.length} admis`, pageW / 2, y, { align: 'center' });
 
-  let tableSize: number;
-  let cellPad: number;
-  let grandNumW = 16;
-  let grandNomW = 0;
-  let grandPrenomW = 0;
-  let grandSerieW = 0;
+    const tableStartY = y + 8;
 
-  if (isGrand) {
-    const tableW = pageW - 28;
-    const matW = 48; // Matricule toujours fixe
+    let tableSize: number;
+    let cellPad: number;
+    let grandNumW = 16;
+    let grandNomW = 0;
+    let grandPrenomW = 0;
+    let grandSerieW = 0;
 
-    tableSize = 7;
-    grandNumW = 16;
-    grandNomW = (tableW - 16 - matW) / 2;
-    grandPrenomW = grandNomW;
+    if (isGrand) {
+      const tableW = pageW - 28;
+      const matW = 48; // Matricule toujours fixe
 
-    outer: for (let size = 24; size >= 7; size -= 0.5) {
-      const pad = Math.max(2, size * 0.11);
-      doc.setFontSize(size);
+      tableSize = 7;
+      grandNumW = 16;
+      grandNomW = (tableW - 16 - matW) / 2;
+      grandPrenomW = grandNomW;
 
-      // Largeur minimale pour la colonne N° (ex: "001", "099", "100")
-      doc.setFont('helvetica', 'normal');
-      const numNeeded = doc.getTextWidth(String(admis.length).padStart(3, '0')) + 2 * pad;
+      outer: for (let size = 24; size >= 7; size -= 0.5) {
+        const pad = Math.max(2, size * 0.11);
+        doc.setFontSize(size);
 
-      // Largeur minimale Série (colonne optionnelle)
-      let serieNeeded = 0;
-      if (withSerieCol) {
-        let maxSerieW = doc.getTextWidth('Série');
-        for (const e of admis) {
-          const w = doc.getTextWidth(serieOf(e));
-          if (w > maxSerieW) maxSerieW = w;
+        // Largeur minimale pour la colonne N° (ex: "001", "099", "100")
+        doc.setFont('helvetica', 'normal');
+        const numNeeded = doc.getTextWidth(String(list.length).padStart(3, '0')) + 2 * pad;
+
+        // Largeur minimale Série (colonne optionnelle)
+        let serieNeeded = 0;
+        if (withSerieCol) {
+          let maxSerieW = doc.getTextWidth('Série');
+          for (const e of list) {
+            const w = doc.getTextWidth(serieOf(e));
+            if (w > maxSerieW) maxSerieW = w;
+          }
+          serieNeeded = maxSerieW + 2 * pad;
         }
-        serieNeeded = maxSerieW + 2 * pad;
+
+        // Largeur minimale Nom
+        doc.setFont('helvetica', 'bold');
+        let maxNomW = 0;
+        for (const e of list) {
+          const w = doc.getTextWidth(e.nom);
+          if (w > maxNomW) maxNomW = w;
+        }
+
+        // Largeur minimale Prénoms
+        doc.setFont('helvetica', 'normal');
+        let maxPrenomW = 0;
+        for (const e of list) {
+          const w = doc.getTextWidth(e.prenoms);
+          if (w > maxPrenomW) maxPrenomW = w;
+        }
+
+        const nomNeeded = maxNomW + 2 * pad;
+        const prenomNeeded = maxPrenomW + 2 * pad;
+
+        if (numNeeded + matW + nomNeeded + prenomNeeded + serieNeeded > tableW) continue outer;
+
+        tableSize = size;
+        grandNumW = numNeeded;
+        grandNomW = nomNeeded;
+        grandSerieW = serieNeeded;
+        grandPrenomW = tableW - numNeeded - matW - nomNeeded - serieNeeded;
+        break;
       }
-
-      // Largeur minimale Nom
-      doc.setFont('helvetica', 'bold');
-      let maxNomW = 0;
-      for (const e of admis) {
-        const w = doc.getTextWidth(e.nom);
-        if (w > maxNomW) maxNomW = w;
-      }
-
-      // Largeur minimale Prénoms
-      doc.setFont('helvetica', 'normal');
-      let maxPrenomW = 0;
-      for (const e of admis) {
-        const w = doc.getTextWidth(e.prenoms);
-        if (w > maxPrenomW) maxPrenomW = w;
-      }
-
-      const nomNeeded = maxNomW + 2 * pad;
-      const prenomNeeded = maxPrenomW + 2 * pad;
-
-      if (numNeeded + matW + nomNeeded + prenomNeeded + serieNeeded > tableW) continue outer;
-
-      tableSize = size;
-      grandNumW = numNeeded;
-      grandNomW = nomNeeded;
-      grandSerieW = serieNeeded;
-      grandPrenomW = tableW - numNeeded - matW - nomNeeded - serieNeeded;
-      break;
+      cellPad = Math.max(2, tableSize * 0.11);
+    } else {
+      tableSize = 8.5;
+      cellPad = 2.5;
     }
-    cellPad = Math.max(2, tableSize * 0.11);
-  } else {
-    tableSize = 8.5;
-    cellPad = 2.5;
-  }
 
-  const headRow = isGrand
-    ? ['N°', 'Matricule', 'Nom', 'Prénoms', ...(withSerieCol ? ['Série'] : [])]
-    : ['N°', 'Matricule', 'Nom', 'Prénoms', ...(withSerieCol ? ['Série'] : []), 'Points'];
-  const colCount = headRow.length;
+    const headRow = isGrand
+      ? ['N°', 'Matricule', 'Nom', 'Prénoms', ...(withSerieCol ? ['Série'] : [])]
+      : ['N°', 'Matricule', 'Nom', 'Prénoms', ...(withSerieCol ? ['Série'] : []), 'Points'];
 
-  const eleveRow = (e: Eleve, i: number) =>
-    isGrand
-      ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, ...(withSerieCol ? [serieOf(e)] : [])]
-      : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, ...(withSerieCol ? [serieOf(e)] : []), String(e.points ?? '')];
+    const body = list.map((e, i) =>
+      isGrand
+        ? [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, ...(withSerieCol ? [serieOf(e)] : [])]
+        : [String(i + 1).padStart(3, '0'), e.matricule || '—', e.nom, e.prenoms, ...(withSerieCol ? [serieOf(e)] : []), String(e.points ?? '')]
+    );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const body: any[] = [];
-  groups.forEach(([serieName, list]) => {
-    if (grouped) {
-      body.push([{
-        content: `SÉRIE ${serieName} — ${list.length} admis`,
-        colSpan: colCount,
-        styles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' as const },
-      }]);
-    }
-    list.forEach((e, i) => body.push(eleveRow(e, i)));
+    autoTable(doc, {
+      startY: tableStartY,
+      margin: { bottom: 32 },
+      head: [headRow],
+      body,
+      tableWidth: pageW - 28,
+      styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
+      headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
+      bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+      columnStyles: isGrand
+        ? {
+            0: { halign: 'center', cellWidth: grandNumW },
+            1: { halign: 'center', cellWidth: 48 },
+            2: { halign: 'left', fontStyle: 'bold', cellWidth: grandNomW },
+            3: { halign: 'left', cellWidth: grandPrenomW },
+            ...(withSerieCol ? { 4: { halign: 'center' as const, cellWidth: grandSerieW } } : {}),
+          }
+        : {
+            0: { halign: 'center', cellWidth: 12 },
+            1: { halign: 'center', cellWidth: 35 },
+            2: { halign: 'left', fontStyle: 'bold' },
+            3: { halign: 'left' },
+            ...(withSerieCol
+              ? { 4: { halign: 'center' as const, cellWidth: 16 }, 5: { halign: 'center' as const, cellWidth: 18 } }
+              : { 4: { halign: 'center' as const, cellWidth: 18 } }),
+          },
+    });
+
+    // Chaque série est un document autonome : footer directeur à la fin de chaque liste
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    drawDirecteurFooter(doc, session.nomDirecteur, (doc as any).lastAutoTable.finalY);
   });
 
-  autoTable(doc, {
-    startY: tableStartY,
-    margin: { bottom: 32 },
-    head: [headRow],
-    body,
-    tableWidth: pageW - 28,
-    styles: { fontSize: tableSize, cellPadding: cellPad, halign: 'center' },
-    headStyles: { fillColor: [28, 43, 58], textColor: [255, 255, 255], fontStyle: 'bold' },
-    bodyStyles: { lineWidth: 0.2, lineColor: [180, 180, 180] },
-    alternateRowStyles: { fillColor: [248, 248, 248] },
-    columnStyles: isGrand
-      ? {
-          0: { halign: 'center', cellWidth: grandNumW },
-          1: { halign: 'center', cellWidth: 48 },
-          2: { halign: 'left', fontStyle: 'bold', cellWidth: grandNomW },
-          3: { halign: 'left', cellWidth: grandPrenomW },
-          ...(withSerieCol ? { 4: { halign: 'center' as const, cellWidth: grandSerieW } } : {}),
-        }
-      : {
-          0: { halign: 'center', cellWidth: 12 },
-          1: { halign: 'center', cellWidth: 35 },
-          2: { halign: 'left', fontStyle: 'bold' },
-          3: { halign: 'left' },
-          ...(withSerieCol
-            ? { 4: { halign: 'center' as const, cellWidth: 16 }, 5: { halign: 'center' as const, cellWidth: 18 } }
-            : { 4: { halign: 'center' as const, cellWidth: 18 } }),
-        },
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  drawDirecteurFooter(doc, session.nomDirecteur, (doc as any).lastAutoTable.finalY);
   const suffix = `${grouped ? 'Par_Serie_' : ''}${isGrand ? 'Grand_Format' : 'Format_Normal'}`;
   doc.save(`Liste_Admis_${suffix}_${session.etablissement.replace(/\s+/g, '_')}_${session.anneeScolaire}.pdf`);
 }
